@@ -32,5 +32,7 @@ and \`GHIDRA_SHA256\` together using metadata from the official
 release's required Java version before changing the workflow's JDK.
 
 The Python tests are source-level regression tests for known semantic mistakes and XML metadata;
-they do not replace execution tests in Ghidra's emulator. A clean SLEIGH compile verifies syntax
+they do not replace execution of P-code against processor reference vectors. In particular,
+`PLP`/native `RTI` can restore M/X into the runtime context register, but static analysis cannot
+infer a successor instruction's accumulator/index width from arbitrary stack contents. tests in Ghidra's emulator. A clean SLEIGH compile verifies syntax
 and constructor consistency, not full CPU correctness.
