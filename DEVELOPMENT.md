@@ -16,8 +16,9 @@ JUnit suite against that module. It currently tests:
 
 | Instruction | Case |
 | --- | --- |
-| `XBA` | Accumulator bytes exchange and N/Z flags |
+| `XBA` | Byte exchange, plus N/Z flags for negative and zero results |
 | `CMP abs` | Unsigned carry for less-than and equal operands |
+| `CPY abs` | Correct comparison width in 8-bit and 16-bit index modes |
 
 The tests use Ghidra's own p-code emulator and do not require a separate CPU emulator.
 
