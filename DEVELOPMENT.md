@@ -1,45 +1,48 @@
 # Development
 
-## Run tests
+## Run checks
 
-Run the Python regression tests:
-
-```sh
-python3 -m unittest discover --start-directory tests --verbose
-```
-
-Compile the processor definition with the same Ghidra release used by CI (currently Ghidra
-12.1.4):
-
-```sh
-bash scripts/ci/compile-sleigh.sh /path/to/ghidra_12.1.4_PUBLIC
-```
-
-The script compiles a temporary copy of `data/languages` twice and checks that the generated
-`65816.sla` files match. It does not add generated files to the repository.
-
-## What the checks mean
-
-| Check | Confirms | Does not confirm |
+| Check | Command / CI step | What it proves |
 | --- | --- | --- |
-| Python tests | Selected source patterns and XML metadata stay as expected | Full instruction correctness |
-| SLEIGH compile | The language compiles with the pinned Ghidra version | Runtime CPU behaviour |
-| Repeat compile | Identical inputs produce identical output | Correctness of the output |
+| Source regression tests | `python3 -m unittest discover --start-directory tests --verbose` | Known source mistakes and language metadata stay covered |
+| SLEIGH compile | CI uses the pinned Ghidra 12.1.4 compiler | Language syntax and constructors compile |
+| Repeat compile | Built-in CI check | Identical inputs produce identical `.sla` files |
+| Runtime p-code tests | Gradle/JUnit with Ghidra's `PcodeEmulator` | Selected instructions execute with expected register/flag results |
 
-## Update the Ghidra version
+## Runtime tests
 
-The CI workflow pins the official Ghidra download and its SHA-256 hash. To update it, change
+The CI workflow compiles the language into a temporary external Ghidra module, then runs the small
+JUnit suite against that module. It currently tests:
+
+| Instruction | Case |
+| --- | --- |
+| `XBA` | Accumulator bytes exchange and N/Z flags |
+| `CMP abs` | Unsigned carry for less-than and equal operands |
+
+The tests use Ghidra's own p-code emulator and do not require a separate CPU emulator.
+
+## Run locally
+
+Use Java 21 and Gradle 8.5 or newer. Point the commands at an extracted Ghidra 12.1.4 distribution:
+
+```sh
+export GHIDRA_INSTALL_DIR=/path/to/ghidra_12.1.4_PUBLIC
+export GHIDRA_EXTERNAL_MODULES="$PWD/build/harness-modules/ghidra-65816"
+mkdir -p "$GHIDRA_EXTERNAL_MODULES"
+cp Module.manifest "$GHIDRA_EXTERNAL_MODULES/Module.manifest"
+bash scripts/ci/compile-sleigh.sh "$GHIDRA_INSTALL_DIR" "$GHIDRA_EXTERNAL_MODULES/data/languages"
+gradle test
+```
+
+The compile script also works with one argument; in that form it uses a temporary directory and only
+checks compilation and repeatability.
+
+## Update Ghidra
+
+CI pins the official release URL and SHA-256 hash. When updating versions, change
 `GHIDRA_VERSION`, `GHIDRA_RELEASE_DATE`, and `GHIDRA_SHA256` together in
-`.github/workflows/sleigh.yml`. Use the official
-[Ghidra releases](https://github.com/NationalSecurityAgency/ghidra/releases) page and check
-which Java version the release requires.
+`.github/workflows/sleigh.yml`. Check the release's required Java and Gradle versions.
 
-## Before changing CPU semantics
-
-1. Check the 65816 reference documentation.
-2. Add a focused regression test.
-3. Compile the language and run the tests.
-4. For behaviour that depends on runtime state, validate against trusted test vectors or an
-   independent emulator before claiming it is correct.
-
-Keep changes small. A passing build is necessary, but it is not proof of correct emulation.
+A passing compile is necessary, but it is not proof of full CPU correctness. Keep runtime tests small,
+add one regression at a time, and compare disputed behavior with trusted 65816 test vectors or an
+independent implementation.
