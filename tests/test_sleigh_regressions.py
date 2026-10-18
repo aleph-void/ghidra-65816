@@ -114,5 +114,47 @@ class InstructionSemanticRegressionTests(unittest.TestCase):
                 self.assertNotIn(f"flag8_NZ({source});", matches[0])
 
 
+    def test_stp_does_not_synthesize_an_immediate_reset(self) -> None:
+        blocks = instruction_blocks("STP")
+        self.assertEqual(len(blocks), 1)
+        _, body = blocks[0]
+        self.assertIn("stop();", body)
+        self.assertIn("goto inst_start;", body)
+        self.assertNotIn("0x00FFFC", body)
+        self.assertNotRegex(body, r"\bgoto\s+\[")
+
+    def test_native_xce_preserves_width_context_and_index_high_bytes(self) -> None:
+        blocks = instruction_blocks("XCE")
+        native = [ (header, body) for header, body in blocks if "ctx_EF=0" in header ]
+        self.assertEqual(len(native), 1)
+        header, body = native[0]
+
+        self.assertIn("ctx_MF=ctx_MF | CF", header)
+        self.assertIn("ctx_XF=ctx_XF | CF", header)
+
+        native_to_native = body.split("\n    <to_native>", 1)[1].split("\n    <end>", 1)[0]
+        self.assertNotRegex(native_to_native, r"\bXHigh\s*=\s*0")
+        self.assertNotRegex(native_to_native, r"\bYHigh\s*=\s*0")
+
+    def test_xce_applies_register_cleanup_only_on_mode_transitions(self) -> None:
+        blocks = instruction_blocks("XCE")
+        native = [body for header, body in blocks if "ctx_EF=0" in header]
+        emulation = [body for header, body in blocks if "ctx_EF=1" in header]
+        self.assertEqual(len(native), 1)
+        self.assertEqual(len(emulation), 1)
+
+        native_body = native[0]
+        to_emulation = native_body.split("\n#    <to_emulation>", 1)[1].split("\n    <to_native>", 1)[0]
+        self.assertIn("XHigh = 0;", to_emulation)
+        self.assertIn("YHigh = 0;", to_emulation)
+        self.assertIn("SPHigh = 1;", to_emulation)
+        self.assertIn("CF = 0;", native_body)
+
+        emulation_body = emulation[0]
+        to_native = emulation_body.split("\n    <to_native>", 1)[1].split("\n    <end>", 1)[0]
+        self.assertIn("XHigh = 0;", to_native)
+        self.assertIn("YHigh = 0;", to_native)
+        self.assertIn("CF = 1;", emulation_body)
+
 if __name__ == "__main__":
     unittest.main()
