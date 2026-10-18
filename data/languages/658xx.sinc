@@ -155,11 +155,13 @@ SHIFT_OP: SEC_OP_X    is SEC_OP_X  { export SEC_OP_X; }
     local do_skip_dec_adjust:1;
     local data:1; deref_read8(data, PRIMARY_OP);
     local result:4;
+    # Keep arithmetic flags separate from the BCD-adjusted result.
+    local flags_result:4 = zext(A) + zext(data) + zext(CF);
 
     if (is_dec) goto <decimal>;
 
     # <binary>
-    result = zext(A) + zext(data) + zext(CF);
+    result = flags_result;
     goto <flags>;
 
     <decimal>
@@ -175,7 +177,7 @@ SHIFT_OP: SEC_OP_X    is SEC_OP_X  { export SEC_OP_X; }
     result = (zext(A) & 0xf0) + (zext(data) & 0xf0) + (zext(CF) << 4) + (result & 0x0f);
 
     <flags>
-    VF = (~zext(A ^ data) & (zext(A) ^ result) & 0x80) != 0;
+    VF = (~zext(A ^ data) & (zext(A) ^ flags_result) & 0x80) != 0;
     # Do this ridiculous dance to properly infer sizes, otherwise we get
     # "Output must be a boolean" errors...
     local too_small:1 = result s<= 0x9f;
@@ -185,7 +187,7 @@ SHIFT_OP: SEC_OP_X    is SEC_OP_X  { export SEC_OP_X; }
     <skip_dec_adjust_flags>
     CF = result s> 0xFF;
     local result8:1 = result:1;
-    flag8_NZ(result8);
+    flag8_NZ(flags_result:1);
     A = result8;
 }
 
@@ -200,11 +202,13 @@ SHIFT_OP: SEC_OP_X    is SEC_OP_X  { export SEC_OP_X; }
     local do_skip_dec_adjust:1;
     local data:2; deref_read16(data, PRIMARY_OP);
     local result:4;
+    # Keep arithmetic flags separate from the BCD-adjusted result.
+    local flags_result:4 = zext(C) + zext(data) + zext(CF);
 
     if (is_dec) goto <decimal>;
 
     # <binary>
-    result = zext(C) + zext(data) + zext(CF);
+    result = flags_result;
     goto <flags>;
 
     <decimal>
@@ -236,7 +240,7 @@ SHIFT_OP: SEC_OP_X    is SEC_OP_X  { export SEC_OP_X; }
     result = (zext(C) & 0xf000) + (zext(data) & 0xf000) + (zext(CF) << 12) + (result & 0x0fff);
 
     <flags>
-    VF = ((~zext(C ^ data)) & (zext(C) ^ result) & 0x8000) != 0;
+    VF = ((~zext(C ^ data)) & (zext(C) ^ flags_result) & 0x8000) != 0;
     local too_small:1 = (result s<= 0x9fff);
     do_skip_dec_adjust = (not_dec || too_small);
     if (do_skip_dec_adjust) goto <skip_dec_adjust_flags>;
@@ -244,7 +248,7 @@ SHIFT_OP: SEC_OP_X    is SEC_OP_X  { export SEC_OP_X; }
     <skip_dec_adjust_flags>
     CF = result s> 0xFFFF;
     local result16:2 = result:2;
-    flag16_NZ(result16);
+    flag16_NZ(flags_result:2);
     C = result16;
 }
 
@@ -1573,11 +1577,13 @@ macro do_ror16(_out, _data) {
     local data:1; deref_read8(data, PRIMARY_OP);
     data = ~data;
     local result:4;
+    # Keep arithmetic flags separate from the BCD-adjusted result.
+    local flags_result:4 = zext(A) + zext(data) + zext(CF);
 
     if (is_dec) goto <decimal>;
 
 #    <binary>
-    result = zext(A) + zext(data) + zext(CF);
+    result = flags_result;
     goto <flags>;
 
     <decimal>
@@ -1592,7 +1598,7 @@ macro do_ror16(_out, _data) {
     result = (zext(A) & 0xf0) + (zext(data) & 0xf0) + (zext(CF) << 4) + (result & 0x0f);
 
     <flags>
-    VF = (~zext(A ^ data) & (zext(A) ^ result) & 0x80) != 0;
+    VF = (~zext(A ^ data) & (zext(A) ^ flags_result) & 0x80) != 0;
     local too_big:1 = (result s> 0xff);
     do_skip_dec_adjust = (not_dec || too_big);
     if (do_skip_dec_adjust) goto <skip_dec_adjust_flags>;
@@ -1600,7 +1606,7 @@ macro do_ror16(_out, _data) {
     <skip_dec_adjust_flags>
     CF = result s> 0xFF;
     result8:1 = result:1;
-    flag8_NZ(result8);
+    flag8_NZ(flags_result:1);
     A = result8;
 }
 
@@ -1616,11 +1622,13 @@ macro do_ror16(_out, _data) {
     local data:2; deref_read16(data, PRIMARY_OP);
     data = ~data;
     local result:4;
+    # Keep arithmetic flags separate from the BCD-adjusted result.
+    local flags_result:4 = zext(C) + zext(data) + zext(CF);
 
     if (is_dec) goto <decimal>;
 
 #    <binary>
-    result = zext(C) + zext(data) + zext(CF);
+    result = flags_result;
     goto <flags>;
 
     <decimal>
@@ -1649,7 +1657,7 @@ macro do_ror16(_out, _data) {
     result = (zext(C) & 0xf000) + (zext(data) & 0xf000) + (zext(CF) << 12) + (result & 0x0fff);
 
     <flags>
-    VF = (~zext(C ^ data) & (zext(C) ^ result) & 0x8000) != 0;
+    VF = (~zext(C ^ data) & (zext(C) ^ flags_result) & 0x8000) != 0;
     local too_big:1 = (result s> 0xffff);
     do_skip_dec_adjust = (not_dec || too_big);
     if (do_skip_dec_adjust) goto <skip_dec_adjust_flags>;
@@ -1657,7 +1665,7 @@ macro do_ror16(_out, _data) {
     <skip_dec_adjust_flags>
     CF = (result s> 0xFFFF);
     local result16:2 = result:2;
-    flag16_NZ(result16);
+    flag16_NZ(flags_result:2);
     C = result16;
 }
 
