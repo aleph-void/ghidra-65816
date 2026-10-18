@@ -159,7 +159,7 @@ macro push_status_emulation() {
 }
 
 # UNSUPPORTED: pulling the context flags MF and XF.
-macro pull_status_native() {
+macro pull_status_native(_restored_xf) {
     local status:1;
     pull8_native(status);
     NF = status[7,1];
@@ -168,6 +168,7 @@ macro pull_status_native() {
     # PLP/RTI remains uncertain because the stack image is only known at runtime.
     $(MF) = status[5,1];
     $(XF) = status[4,1];
+    _restored_xf = status[4,1];
     DF = status[3,1];
     IF = status[2,1];
     ZF = status[1,1];
