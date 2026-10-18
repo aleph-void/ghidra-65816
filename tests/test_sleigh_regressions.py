@@ -104,7 +104,7 @@ class InstructionSemanticRegressionTests(unittest.TestCase):
 
     def test_native_status_pull_restores_runtime_width_context(self) -> None:
         match = re.search(
-            r"macro pull_status_native\(\)\s*\{(.*?)\n\}",
+            r"macro pull_status_native\([^)]*\)\s*\{(.*?)\n\}",
             MEMACCESS,
             re.DOTALL,
         )
@@ -112,6 +112,7 @@ class InstructionSemanticRegressionTests(unittest.TestCase):
         body = match.group(1)
         self.assertIn("$(MF) = status[5,1];", body)
         self.assertIn("$(XF) = status[4,1];", body)
+        self.assertIn("_restored_xf = status[4,1];", body)
 
         for mnemonic in ("PLP", "RTI"):
             with self.subTest(mnemonic=mnemonic):
@@ -122,8 +123,8 @@ class InstructionSemanticRegressionTests(unittest.TestCase):
                 ]
                 self.assertEqual(len(native), 1)
                 semantic = native[0][1]
-                self.assertIn("pull_status_native();", semantic)
-                self.assertIn("local restored_xf:1 = $(XF);", semantic)
+                self.assertIn("pull_status_native(restored_xf);", semantic)
+                self.assertIn("local restored_xf:1;", semantic)
                 self.assertNotIn("unknown_native_status_pull", semantic)
                 self.assertIn("if (restored_xf == 0) goto <skip_shrink>;", semantic)
 
