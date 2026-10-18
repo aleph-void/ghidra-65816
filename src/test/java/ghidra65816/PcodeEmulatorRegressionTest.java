@@ -139,6 +139,34 @@ class PcodeEmulatorRegressionTest {
     }
 
     @Test
+    void xbaSetsNegativeFromTheNewAccumulatorLowByte() throws Exception {
+        Run run = start(new byte[] {(byte) 0xeb}); // XBA
+        writeRegister(run, "A", 0x01);
+        writeRegister(run, "B", 0x80);
+
+        executeOne(run);
+
+        assertEquals(0x80, readRegister(run, "A"));
+        assertEquals(0x01, readRegister(run, "B"));
+        assertEquals(1, readRegister(run, "NF"));
+        assertEquals(0, readRegister(run, "ZF"));
+    }
+
+    @Test
+    void xbaSetsZeroWhenTheNewAccumulatorLowByteIsZero() throws Exception {
+        Run run = start(new byte[] {(byte) 0xeb}); // XBA
+        writeRegister(run, "A", 0x55);
+        writeRegister(run, "B", 0x00);
+
+        executeOne(run);
+
+        assertEquals(0x00, readRegister(run, "A"));
+        assertEquals(0x55, readRegister(run, "B"));
+        assertEquals(0, readRegister(run, "NF"));
+        assertEquals(1, readRegister(run, "ZF"));
+    }
+
+    @Test
     void cmpAbsoluteUsesUnsignedCarryForZeroLessThanFfff() throws Exception {
         Run run = start(new byte[] {(byte) 0xcd, 0x00, 0x20}); // CMP $2000
         run.emulator().getSharedState().setVar(
