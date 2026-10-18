@@ -20,6 +20,12 @@ apply from: new File(ghidraInstallDir, 'support/buildExtension.gradle')
 
 test {
     useJUnitPlatform()
+
+    // Ghidra documents this factory override for Gradle test JVMs. Without it,
+    // HeadlessGhidraApplicationConfiguration can fail during startup on Java 21
+    // with "Cannot replace filter factory: BuiltinFilterFactory".
+    systemProperty 'jdk.serialFilterFactory', 'ghidra.framework.remote.GhidraSerialFilterFactory'
+
     testLogging {
         events 'started', 'passed', 'failed', 'skipped', 'standardOut', 'standardError'
         showStandardStreams = true
