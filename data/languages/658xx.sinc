@@ -10,8 +10,8 @@
 # UNSUPPORTED: 65802 variant.
 # UNSUPPORTED: correct behaviour when an instruction and its operand(s) wrap at the end of the
 #              program bank.
-# UNSUPPORTED: when pulling the context flags MF and XF from the stack Ghidra does not
-#              automatically set the correct processor mode (context variables).
+# NOTE: PLP/RTI restore M/X into the runtime context register, but static
+#       disassembly cannot infer the next decode mode from arbitrary stack contents.
 # UNSUPPORTED: automatic entry point symbols.
 
 
@@ -1255,15 +1255,12 @@ macro do_lsr16(_out, _data) {
 }
 
 # PLP native.
-# UNSUPPORTED: pulling the context flags MF and XF.
-define pcodeop unknown_native_status_pull;
 :PLP    is (ctx_EF=0 & op=0x28)
 {
     pull_status_native();
-    # Don't know whether XF is now set.
-    local is_x16:1 = unknown_native_status_pull();
+    local restored_xf:1 = $(XF);
 
-    if (is_x16) goto <skip_shrink>;
+    if (restored_xf == 0) goto <skip_shrink>;
     # "When a sixteen-bit index register is switched to eight bits, the high byte is lost
     # irretrievably and replaced by a zero."
     XHigh = 0;
@@ -1468,9 +1465,9 @@ macro do_ror16(_out, _data) {
 :RTI    is (ctx_EF=0 & op=0x40)
 {
     pull_status_native();
-    local is_x16:1 = unknown_native_status_pull();
+    local restored_xf:1 = $(XF);
 
-    if (is_x16) goto <skip_shrink>;
+    if (restored_xf == 0) goto <skip_shrink>;
     # "When a sixteen-bit index register is switched to eight bits, the high byte is lost
     # irretrievably and replaced by a zero."
     XHigh = 0;
