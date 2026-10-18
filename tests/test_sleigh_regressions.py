@@ -13,6 +13,7 @@ import xml.etree.ElementTree as ET
 ROOT = Path(__file__).resolve().parents[1]
 LANGUAGES = ROOT / "data" / "languages"
 SINC = (LANGUAGES / "658xx.sinc").read_text(encoding="utf-8")
+MEMACCESS = (LANGUAGES / "658xx_memaccess.sinc").read_text(encoding="utf-8")
 
 
 def instruction_blocks(mnemonic: str) -> list[tuple[str, str]]:
@@ -99,6 +100,127 @@ class InstructionSemanticRegressionTests(unittest.TestCase):
             body,
             r"local old_a:1 = A;\s*A = B;\s*B = old_a;\s*flag8_NZ\(A\);",
         )
+
+
+    def test_emulation_status_stack_image_forces_reserved_and_break_bits(self) -> None:
+        push_macro = re.search(
+            r"macro push_status_emulation\(([^)]*)\)\s*\{(.*?)\n\}",
+            MEMACCESS,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(push_macro)
+        push_body = push_macro.group(2)
+        self.assertIn("status[5,1] = 1;", push_body)
+        self.assertIn("status[4,1] = _break;", push_body)
+
+        pull_macro = re.search(
+            r"macro pull_status_emulation\(\)\s*\{(.*?)\n\}",
+            MEMACCESS,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(pull_macro)
+        self.assertNotRegex(pull_macro.group(1), r"\bBF\s*=")
+
+        for mnemonic in ("BRK", "COP", "PHP"):
+            with self.subTest(mnemonic=mnemonic):
+                emulation_bodies = [
+                    body for header, body in instruction_blocks(mnemonic)
+                    if "ctx_EF=1" in header
+                ]
+                self.assertTrue(emulation_bodies)
+                self.assertTrue(
+                    all("push_status_emulation(1:1);" in body for body in emulation_bodies),
+                    f"{mnemonic} must push an emulation-mode status image with B=1",
+                )
+
+
+    def test_emulation_software_interrupts_clear_program_bank(self) -> None:
+        for mnemonic in ("BRK", "COP"):
+            with self.subTest(mnemonic=mnemonic):
+                emulation_bodies = [
+                    body for header, body in instruction_blocks(mnemonic)
+                    if "ctx_EF=1" in header
+                ]
+                self.assertEqual(len(emulation_bodies), 1)
+                body = emulation_bodies[0]
+                self.assertIn("PBR = 0;", body)
+                self.assertLess(body.index("PBR = 0;"), body.index("goto [target];"))
+
+    def test_plp_and_rti_use_mode_specific_status_pull(self) -> None:
+        for mnemonic in ("PLP", "RTI"):
+            with self.subTest(mnemonic=mnemonic, mode="emulation"):
+                blocks = [
+                    body for header, body in instruction_blocks(mnemonic)
+                    if "ctx_EF=1" in header
+                ]
+                self.assertEqual(len(blocks), 1)
+                self.assertIn("pull_status_emulation();", blocks[0])
+                self.assertNotIn("pull_status_native();", blocks[0])
+
+            with self.subTest(mnemonic=mnemonic, mode="native"):
+                blocks = [
+                    body for header, body in instruction_blocks(mnemonic)
+                    if "ctx_EF=0" in header
+                ]
+                self.assertEqual(len(blocks), 1)
+                self.assertIn("pull_status_native();", blocks[0])
+                self.assertNotIn("pull_status_emulation();", blocks[0])
+
+    def test_interrupt_entry_stacks_state_before_changing_live_flags(self) -> None:
+        for mnemonic in ("BRK", "COP"):
+            for mode, context in (("native", "ctx_EF=0"), ("emulation", "ctx_EF=1")):
+                with self.subTest(mnemonic=mnemonic, mode=mode):
+                    bodies = [
+                        body for header, body in instruction_blocks(mnemonic)
+                        if context in header
+                    ]
+                    self.assertEqual(len(bodies), 1)
+                    body = bodies[0]
+                    status_push = (
+                        "push_status_native();"
+                        if mode == "native"
+                        else "push_status_emulation(1:1);"
+                    )
+                    self.assertLess(body.index("push"), body.index(status_push))
+                    self.assertLess(body.index(status_push), body.index("IF = 1;"))
+                    self.assertLess(body.index("IF = 1;"), body.index("DF = 0;"))
+                    self.assertLess(body.index("DF = 0;"), body.index("PBR = 0;"))
+
+    def test_rti_restores_pc_with_mode_appropriate_bank_handling(self) -> None:
+        emulation = [
+            body for header, body in instruction_blocks("RTI")
+            if "ctx_EF=1" in header
+        ]
+        native = [
+            body for header, body in instruction_blocks("RTI")
+            if "ctx_EF=0" in header
+        ]
+        self.assertEqual(len(emulation), 1)
+        self.assertIn("pull16_emulation(pc);", emulation[0])
+        self.assertIn("(zext(PBR) << 16) | zext(pc)", emulation[0])
+        self.assertNotIn("pull8_emulation(pbr)", emulation[0])
+
+        self.assertEqual(len(native), 1)
+        self.assertIn("pull16_native(pc);", native[0])
+        self.assertIn("pull8_native(pbr);", native[0])
+        self.assertIn("(zext(pbr) << 16) | zext(pc)", native[0])
+
+    def test_software_interrupts_clear_pbr_before_vector_transfer(self) -> None:
+        vectors = {"BRK": ("0x00FFE6", "0x00FFFE"),
+                   "COP": ("0x00FFE4", "0x00FFF4")}
+        for mnemonic, (native_vector, emulation_vector) in vectors.items():
+            blocks = instruction_blocks(mnemonic)
+            for mode, vector in (("native", native_vector), ("emulation", emulation_vector)):
+                with self.subTest(mnemonic=mnemonic, mode=mode):
+                    matches = [
+                        body for header, body in blocks
+                        if f"ctx_EF={'0' if mode == 'native' else '1'}" in header
+                    ]
+                    self.assertEqual(len(matches), 1)
+                    body = matches[0]
+                    self.assertIn("PBR = 0;", body)
+                    self.assertLess(body.index("PBR = 0;"), body.index("goto [target];"))
+                    self.assertIn(vector, body)
 
     def test_wide_accumulator_transfers_set_sixteen_bit_flags(self) -> None:
         for mnemonic, source in (("TXA", "XLow"), ("TYA", "YLow")):
