@@ -164,8 +164,10 @@ macro pull_status_native() {
     pull8_native(status);
     NF = status[7,1];
     VF = status[6,1];
-    # MF = status[5,1];
-    # XF = status[4,1];
+    # Restore M/X in the runtime context register. Disassembly context after
+    # PLP/RTI remains uncertain because the stack image is only known at runtime.
+    $(MF) = status[5,1];
+    $(XF) = status[4,1];
     DF = status[3,1];
     IF = status[2,1];
     ZF = status[1,1];
