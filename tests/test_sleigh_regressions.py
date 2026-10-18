@@ -104,7 +104,7 @@ class InstructionSemanticRegressionTests(unittest.TestCase):
 
     def test_native_status_pull_restores_runtime_width_context(self) -> None:
         match = re.search(
-            r"macro pull_status_native\\(\\)\\s*\\{(.*?)\\n\\}",
+            r"macro pull_status_native\(\)\s*\{(.*?)\n\}",
             MEMACCESS,
             re.DOTALL,
         )
