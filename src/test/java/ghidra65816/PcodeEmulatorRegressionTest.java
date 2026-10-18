@@ -35,7 +35,6 @@ class PcodeEmulatorRegressionTest {
 
     @BeforeAll
     static void initializeGhidra() throws Exception {
-        System.err.println("GHIDRA_TEST: entering setup");
         String installDir = System.getenv("GHIDRA_INSTALL_DIR");
         assertNotNull(installDir, "GHIDRA_INSTALL_DIR must be set by the test workflow");
 
@@ -43,16 +42,13 @@ class PcodeEmulatorRegressionTest {
         assertNotNull(externalModules, "GHIDRA_EXTERNAL_MODULES must point to the compiled language module");
         System.setProperty("ghidra.external.modules", externalModules);
 
-        System.err.println("GHIDRA_TEST: paths validated; initialize application");
         if (!Application.isInitialized()) {
             Application.initializeApplication(
                 new GhidraApplicationLayout(new File(installDir)),
                 new HeadlessGhidraApplicationConfiguration());
         }
-        System.err.println("GHIDRA_TEST: application initialized; load language");
         language = DefaultLanguageService.getLanguageService()
             .getLanguage(new LanguageID("65816:LE:16:default"));
-        System.err.println("GHIDRA_TEST: language loaded");
     }
 
     private static Run start(byte[] code) {
@@ -62,7 +58,9 @@ class PcodeEmulatorRegressionTest {
         PcodeThread<byte[]> thread = emulator.newThread();
         thread.overrideCounter(space.getAddress(CODE_ADDRESS));
         thread.overrideContextWithDefault();
-        return new Run(emulator, thread, space);
+        Run run = new Run(emulator, thread, space);
+        writeRegister(run, "DBR", 0);
+        return run;
     }
 
     private static void writeRegister(Run run, String name, long value) {
@@ -86,8 +84,7 @@ class PcodeEmulatorRegressionTest {
     }
 
     @Test
-    void xbaExchangesAccumulatorBytes() {
-        System.err.println("GHIDRA_TEST: starting XBA");
+    void xbaExchangesAccumulatorBytes() throws Exception {
         Run run = start(new byte[] {(byte) 0xeb}); // XBA
         writeRegister(run, "A", 0x12);
         writeRegister(run, "B", 0x34);
@@ -101,8 +98,7 @@ class PcodeEmulatorRegressionTest {
     }
 
     @Test
-    void cmpAbsoluteUsesUnsignedCarryForZeroLessThanFfff() {
-        System.err.println("GHIDRA_TEST: starting CMP-less");
+    void cmpAbsoluteUsesUnsignedCarryForZeroLessThanFfff() throws Exception {
         Run run = start(new byte[] {(byte) 0xcd, 0x00, 0x20}); // CMP $2000
         run.emulator().getSharedState().setVar(
             run.space(), DATA_ADDRESS, 2, false, new byte[] {(byte) 0xff, (byte) 0xff});
@@ -115,7 +111,7 @@ class PcodeEmulatorRegressionTest {
     }
 
     @Test
-    void cmpAbsoluteSetsCarryAndZeroForEqualOperands() {
+    void cmpAbsoluteSetsCarryAndZeroForEqualOperands() throws Exception {
         Run run = start(new byte[] {(byte) 0xcd, 0x00, 0x20}); // CMP $2000
         run.emulator().getSharedState().setVar(
             run.space(), DATA_ADDRESS, 2, false, new byte[] {(byte) 0xff, (byte) 0xff});
