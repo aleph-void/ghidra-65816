@@ -47,6 +47,7 @@ In the CodeBrowser, right-click the first instruction and use **Processor Option
 ## Known limitations
 
 - Instructions and operands that cross the end of a program bank may be analysed incorrectly.
+- Immediate operands are modelled through references to instruction bytes, which can limit constant propagation in analysis.
 - `PLP` and `RTI` restore status bits at runtime, but Ghidra cannot automatically use the restored
   `MF` and `XF` bits to select the correct decode context.
 - `XCE` changes emulation/native mode at runtime. Static disassembly context cannot always follow
