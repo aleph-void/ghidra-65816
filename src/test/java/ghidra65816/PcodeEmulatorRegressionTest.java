@@ -125,6 +125,58 @@ class PcodeEmulatorRegressionTest {
     }
 
     @Test
+    void xceNativeToNativePreservesIndexHighBytesAndWidths() throws Exception {
+        Run run = start(new byte[] {(byte) 0xfb}); // XCE
+        writeRegister(run, "X", 0x1234);
+        writeRegister(run, "Y", 0x5678);
+        writeRegister(run, "CF", 0);
+        setContextBit(run, "ctx_EF", 0);
+        setContextBit(run, "ctx_MF", 0);
+        setContextBit(run, "ctx_XF", 0);
+
+        executeOne(run);
+
+        assertEquals(0x1234, readRegister(run, "X"));
+        assertEquals(0x5678, readRegister(run, "Y"));
+        assertEquals(0, readRegister(run, "CF"));
+    }
+
+    @Test
+    void xceNativeToEmulationClearsIndexHighBytes() throws Exception {
+        Run run = start(new byte[] {(byte) 0xfb}); // XCE
+        writeRegister(run, "X", 0x1234);
+        writeRegister(run, "Y", 0x5678);
+        writeRegister(run, "CF", 1);
+        setContextBit(run, "ctx_EF", 0);
+        setContextBit(run, "ctx_MF", 0);
+        setContextBit(run, "ctx_XF", 0);
+
+        executeOne(run);
+
+        assertEquals(0x0034, readRegister(run, "X"));
+        assertEquals(0x0078, readRegister(run, "Y"));
+        assertEquals(0, readRegister(run, "CF"));
+        assertEquals(1, readRegister(run, "SPHigh"));
+    }
+
+    @Test
+    void xceEmulationToNativeExchangesCarryAndEmulationFlag() throws Exception {
+        Run run = start(new byte[] {(byte) 0xfb}); // XCE
+        writeRegister(run, "X", 0x0034);
+        writeRegister(run, "Y", 0x0078);
+        writeRegister(run, "CF", 0);
+        setContextBit(run, "ctx_EF", 1);
+        setContextBit(run, "ctx_MF", 1);
+        setContextBit(run, "ctx_XF", 1);
+
+        executeOne(run);
+
+        assertEquals(0x0034, readRegister(run, "X"));
+        assertEquals(0x0078, readRegister(run, "Y"));
+        assertEquals(1, readRegister(run, "CF"));
+    }
+
+    @Test
     void xbaExchangesAccumulatorBytes() throws Exception {
         Run run = start(new byte[] {(byte) 0xeb}); // XBA
         writeRegister(run, "A", 0x12);
