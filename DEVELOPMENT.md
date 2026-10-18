@@ -1,36 +1,45 @@
-# Development checks
+# Development
 
-The repository's GitHub Actions workflow validates the language definitions with a pinned
-public Ghidra release and repeats a clean SLEIGH compilation to detect nondeterministic output.
+## Run tests
 
-## Run the checks locally
+Run the Python regression tests:
 
-Run the standard-library Python regression tests:
-
-\`\`\`sh
+```sh
 python3 -m unittest discover --start-directory tests --verbose
-\`\`\`
+```
 
-Download and extract the same official Ghidra release used by CI (Ghidra 12.1.4), then pass
-the extracted installation directory to the compiler helper:
+Compile the processor definition with the same Ghidra release used by CI (currently Ghidra
+12.1.4):
 
-\`\`\`sh
+```sh
 bash scripts/ci/compile-sleigh.sh /path/to/ghidra_12.1.4_PUBLIC
-\`\`\`
+```
 
-The helper compiles a temporary copy of \`data/languages\` using Ghidra's own
-\`ghidra.pcodeCPort.slgh_compile.SleighCompile\` class. It compiles twice from clean generated
-outputs, checks that \`65816.sla\` was produced, and compares output hashes. It does not put
-generated \`.sla\` files into the working tree.
+The script compiles a temporary copy of `data/languages` twice and checks that the generated
+`65816.sla` files match. It does not add generated files to the repository.
 
-## Keeping the CI compiler version current
+## What the checks mean
 
-The workflow pins the official archive URL and SHA-256 digest rather than following a floating
-download. When upgrading the Ghidra release, update \`GHIDRA_VERSION\`, \`GHIDRA_RELEASE_DATE\`,
-and \`GHIDRA_SHA256\` together using metadata from the official
-[Ghidra releases](https://github.com/NationalSecurityAgency/ghidra/releases). Check the
-release's required Java version before changing the workflow's JDK.
+| Check | Confirms | Does not confirm |
+| --- | --- | --- |
+| Python tests | Selected source patterns and XML metadata stay as expected | Full instruction correctness |
+| SLEIGH compile | The language compiles with the pinned Ghidra version | Runtime CPU behaviour |
+| Repeat compile | Identical inputs produce identical output | Correctness of the output |
 
-The Python tests are source-level regression tests for known semantic mistakes and XML metadata;
-they do not replace execution tests in Ghidra's emulator. A clean SLEIGH compile verifies syntax
-and constructor consistency, not full CPU correctness.
+## Update the Ghidra version
+
+The CI workflow pins the official Ghidra download and its SHA-256 hash. To update it, change
+`GHIDRA_VERSION`, `GHIDRA_RELEASE_DATE`, and `GHIDRA_SHA256` together in
+`.github/workflows/sleigh.yml`. Use the official
+[Ghidra releases](https://github.com/NationalSecurityAgency/ghidra/releases) page and check
+which Java version the release requires.
+
+## Before changing CPU semantics
+
+1. Check the 65816 reference documentation.
+2. Add a focused regression test.
+3. Compile the language and run the tests.
+4. For behaviour that depends on runtime state, validate against trusted test vectors or an
+   independent emulator before claiming it is correct.
+
+Keep changes small. A passing build is necessary, but it is not proof of correct emulation.
