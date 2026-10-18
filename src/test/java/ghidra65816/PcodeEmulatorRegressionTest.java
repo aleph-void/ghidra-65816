@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.io.File;
+import java.math.BigInteger;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -22,6 +23,7 @@ import ghidra.program.model.address.AddressSpace;
 import ghidra.program.model.lang.Language;
 import ghidra.program.model.lang.LanguageID;
 import ghidra.program.model.lang.Register;
+import ghidra.program.model.lang.RegisterValue;
 import ghidra.program.util.DefaultLanguageService;
 
 /** Small runtime tests for generated 65816 p-code. */
@@ -71,6 +73,14 @@ class PcodeEmulatorRegressionTest {
             register, arithmetic.fromConst(value, register.getNumBytes()));
     }
 
+    private static void setContextBit(Run run, String name, long value) {
+        Register contextBit = language.getRegister(name);
+        assertNotNull(contextBit, "Missing 65816 context field: " + name);
+        RegisterValue context = run.thread().getContext()
+            .assign(contextBit, BigInteger.valueOf(value));
+        run.thread().overrideContext(context);
+    }
+
     private static long readRegister(Run run, String name) {
         Register register = language.getRegister(name);
         assertNotNull(register, "Missing 65816 register: " + name);
@@ -81,6 +91,37 @@ class PcodeEmulatorRegressionTest {
 
     private static void executeOne(Run run) throws Exception {
         run.thread().stepInstruction();
+    }
+
+    @Test
+    void cpyEightBitModeUsesOnlyTheLowIndexByte() throws Exception {
+        Run run = start(new byte[] {(byte) 0xcc, 0x00, 0x20}); // CPY $2000
+        run.emulator().getSharedState().setVar(
+            run.space(), DATA_ADDRESS, 2, false, new byte[] {(byte) 0xff, 0x00});
+        writeRegister(run, "Y", 0x01fe);
+        setContextBit(run, "ctx_XF", 1);
+
+        executeOne(run);
+
+        assertEquals(0, readRegister(run, "CF"),
+            "8-bit CPY must compare YLow=$fe with operand=$ff");
+        assertEquals(1, readRegister(run, "NF"));
+        assertEquals(0, readRegister(run, "ZF"));
+    }
+
+    @Test
+    void cpySixteenBitModeComparesTheWholeIndexRegister() throws Exception {
+        Run run = start(new byte[] {(byte) 0xcc, 0x00, 0x20}); // CPY $2000
+        run.emulator().getSharedState().setVar(
+            run.space(), DATA_ADDRESS, 2, false, new byte[] {(byte) 0xff, 0x00});
+        writeRegister(run, "Y", 0x0100);
+        setContextBit(run, "ctx_XF", 0);
+
+        executeOne(run);
+
+        assertEquals(1, readRegister(run, "CF"),
+            "16-bit CPY must compare Y=$0100 with operand=$00ff");
+        assertEquals(0, readRegister(run, "ZF"));
     }
 
     @Test
