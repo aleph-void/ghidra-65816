@@ -13,6 +13,7 @@ import xml.etree.ElementTree as ET
 ROOT = Path(__file__).resolve().parents[1]
 LANGUAGES = ROOT / "data" / "languages"
 SINC = (LANGUAGES / "658xx.sinc").read_text(encoding="utf-8")
+MEMACCESS = (LANGUAGES / "658xx_memaccess.sinc").read_text(encoding="utf-8")
 
 
 def instruction_blocks(mnemonic: str) -> list[tuple[str, str]]:
@@ -99,6 +100,34 @@ class InstructionSemanticRegressionTests(unittest.TestCase):
             body,
             r"local old_a:1 = A;\s*A = B;\s*B = old_a;\s*flag8_NZ\(A\);",
         )
+
+
+    def test_native_status_pull_restores_runtime_width_context(self) -> None:
+        match = re.search(
+            r"macro pull_status_native\\(\\)\\s*\\{(.*?)\\n\\}",
+            MEMACCESS,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(match)
+        body = match.group(1)
+        self.assertIn("$(MF) = status[5,1];", body)
+        self.assertIn("$(XF) = status[4,1];", body)
+
+        for mnemonic in ("PLP", "RTI"):
+            with self.subTest(mnemonic=mnemonic):
+                native = [
+                    (header, semantic)
+                    for header, semantic in instruction_blocks(mnemonic)
+                    if "ctx_EF=0" in header
+                ]
+                self.assertEqual(len(native), 1)
+                semantic = native[0][1]
+                self.assertIn("pull_status_native();", semantic)
+                self.assertIn("local restored_xf:1 = $(XF);", semantic)
+                self.assertNotIn("unknown_native_status_pull", semantic)
+                self.assertIn("if (restored_xf == 0) goto <skip_shrink>;", semantic)
+
+        self.assertNotIn("unknown_native_status_pull", SINC)
 
     def test_wide_accumulator_transfers_set_sixteen_bit_flags(self) -> None:
         for mnemonic, source in (("TXA", "XLow"), ("TYA", "YLow")):
