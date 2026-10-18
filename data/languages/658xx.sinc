@@ -1257,8 +1257,8 @@ macro do_lsr16(_out, _data) {
 # PLP native.
 :PLP    is (ctx_EF=0 & op=0x28)
 {
-    pull_status_native();
-    local restored_xf:1 = $(XF);
+    local restored_xf:1;
+    pull_status_native(restored_xf);
 
     if (restored_xf == 0) goto <skip_shrink>;
     # "When a sixteen-bit index register is switched to eight bits, the high byte is lost
@@ -1464,8 +1464,8 @@ macro do_ror16(_out, _data) {
 # UNSUPPORTED: pulling the context flags MF and XF.
 :RTI    is (ctx_EF=0 & op=0x40)
 {
-    pull_status_native();
-    local restored_xf:1 = $(XF);
+    local restored_xf:1;
+    pull_status_native(restored_xf);
 
     if (restored_xf == 0) goto <skip_shrink>;
     # "When a sixteen-bit index register is switched to eight bits, the high byte is lost
