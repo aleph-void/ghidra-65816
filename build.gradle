@@ -1,0 +1,32 @@
+plugins {
+    id 'java'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.10.2'
+}
+
+def ghidraInstallDir = System.getenv('GHIDRA_INSTALL_DIR')
+if (!ghidraInstallDir) {
+    throw new GradleException('GHIDRA_INSTALL_DIR must point to a Ghidra 12.1.4 installation')
+}
+
+apply from: new File(ghidraInstallDir, 'support/buildExtension.gradle')
+
+test {
+    useJUnitPlatform()
+    testLogging {
+        events 'failed', 'skipped'
+        exceptionFormat 'full'
+    }
+
+    def externalModules = System.getenv('GHIDRA_EXTERNAL_MODULES')
+    if (externalModules) {
+        systemProperty 'ghidra.external.modules', externalModules
+    }
+}
