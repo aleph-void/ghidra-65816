@@ -1,13 +1,14 @@
 package ghidra65816;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.io.File;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
+import java.util.concurrent.TimeUnit;
 
 import ghidra.GhidraApplicationLayout;
 import ghidra.framework.Application;
@@ -17,7 +18,6 @@ import ghidra.pcode.emu.PcodeThread;
 import ghidra.pcode.exec.PcodeArithmetic;
 import ghidra.pcode.exec.PcodeArithmetic.Purpose;
 import ghidra.pcode.exec.PcodeExecutorStatePiece.Reason;
-import ghidra.pcode.exec.InterruptPcodeExecutionException;
 import ghidra.program.model.address.AddressSpace;
 import ghidra.program.model.lang.Language;
 import ghidra.program.model.lang.LanguageID;
@@ -25,6 +25,7 @@ import ghidra.program.model.lang.Register;
 import ghidra.program.util.DefaultLanguageService;
 
 /** Small runtime tests for generated 65816 p-code. */
+@Timeout(value = 30, unit = TimeUnit.SECONDS)
 class PcodeEmulatorRegressionTest {
     private static final long CODE_ADDRESS = 0x1000;
     private static final long DATA_ADDRESS = 0x2000;
@@ -58,8 +59,6 @@ class PcodeEmulatorRegressionTest {
         PcodeEmulator emulator = new PcodeEmulator(language);
         AddressSpace space = language.getDefaultSpace();
         emulator.getSharedState().setVar(space, CODE_ADDRESS, code.length, false, code);
-        emulator.addBreakpoint(space.getAddress(CODE_ADDRESS + code.length), "1:1");
-
         PcodeThread<byte[]> thread = emulator.newThread();
         thread.overrideCounter(space.getAddress(CODE_ADDRESS));
         thread.overrideContextWithDefault();
@@ -82,9 +81,8 @@ class PcodeEmulatorRegressionTest {
             run.thread().getState().getVar(register, Reason.INSPECT), Purpose.INSPECT);
     }
 
-    private static void executeOne(Run run) {
-        assertThrows(InterruptPcodeExecutionException.class, () -> run.thread().run(),
-            "Execution should stop at the breakpoint immediately after one instruction");
+    private static void executeOne(Run run) throws Exception {
+        run.thread().stepInstruction();
     }
 
     @Test
