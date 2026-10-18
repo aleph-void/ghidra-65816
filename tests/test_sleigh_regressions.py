@@ -102,11 +102,12 @@ class InstructionSemanticRegressionTests(unittest.TestCase):
 
 
     def test_adc_sbc_flags_use_binary_result_in_decimal_mode(self) -> None:
-        for mnemonic, operand in (("ADC", "A"), ("SBC", "A")):
+        for mnemonic in ("ADC", "SBC"):
             for width, sign_mask, nz_call in (
                 ("1", "0x80", "flag8_NZ(flags_result:1);"),
                 ("0", "0x8000", "flag16_NZ(flags_result:2);"),
             ):
+                operand = "A" if width == "1" else "C"
                 with self.subTest(mnemonic=mnemonic, width=width):
                     matching = [
                         body for header, body in instruction_blocks(mnemonic)
