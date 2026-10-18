@@ -21,7 +21,8 @@ apply from: new File(ghidraInstallDir, 'support/buildExtension.gradle')
 test {
     useJUnitPlatform()
     testLogging {
-        events 'failed', 'skipped'
+        events 'started', 'passed', 'failed', 'skipped', 'standardOut', 'standardError'
+        showStandardStreams = true
         exceptionFormat 'full'
     }
 
