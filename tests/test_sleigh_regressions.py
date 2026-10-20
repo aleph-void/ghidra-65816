@@ -163,8 +163,29 @@ class InstructionSemanticRegressionTests(unittest.TestCase):
                     if "ctx_EF=0" in header
                 ]
                 self.assertEqual(len(blocks), 1)
-                self.assertIn("pull_status_native();", blocks[0])
+                self.assertIn("pull_status_native(status);", blocks[0])
                 self.assertNotIn("pull_status_emulation();", blocks[0])
+
+    def test_native_status_pull_uses_stacked_x_bit_for_index_cleanup(self) -> None:
+        self.assertIn("macro pull_status_native(_status) {", MEMACCESS)
+        pull_body = MEMACCESS.split("macro pull_status_native(_status) {", 1)[1].split("\\n}", 1)[0]
+        self.assertIn("pull8_native(_status);", pull_body)
+        self.assertIn("NF = _status[7,1];", pull_body)
+        self.assertIn("CF = _status[0,1];", pull_body)
+
+        self.assertNotIn("unknown_native_status_pull", SINC)
+        for mnemonic in ("PLP", "RTI"):
+            with self.subTest(mnemonic=mnemonic):
+                native_bodies = [
+                    body for header, body in instruction_blocks(mnemonic)
+                    if "ctx_EF=0" in header
+                ]
+                self.assertEqual(len(native_bodies), 1)
+                body = native_bodies[0]
+                self.assertIn("pull_status_native(status);", body)
+                self.assertIn("status[4,1] == 0", body)
+                self.assertIn("XHigh = 0;", body)
+                self.assertIn("YHigh = 0;", body)
 
     def test_interrupt_entry_stacks_state_before_changing_live_flags(self) -> None:
         for mnemonic in ("BRK", "COP"):
