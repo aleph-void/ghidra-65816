@@ -1,12 +1,13 @@
 # Ghidra-65816: Limitations, Improvement Roadmap, and Ranked Resources
 
 **Research date:** 2026-10-20  
+**Progress tracking updated:** 2026-10-21  
 **Target:** [`kaayzouee/ghidra-65816`](https://github.com/kaayzouee/ghidra-65816)  
 **Scope:** Source and documentation review plus online research. This is a roadmap, not a claim that unexecuted tests passed.
 
 ## Executive assessment
 
-The largest weakness is the gap between a processor specification that compiles and one proven to drive reliable disassembly, data-flow analysis, and decompilation across real 65816 programs. The repository is explicit that it is experimental, that static mode tracking is limited, and that its selected runtime cases do not prove complete processor correctness. The current development guide lists 24 runtime instruction sequences, which is useful progress but a small sample of a 256-opcode ISA with many addressing modes and multiple processor states.
+The largest weakness is the gap between a processor specification that compiles and one proven to drive reliable disassembly, data-flow analysis, and decompilation across real 65816 programs. The repository is explicit that it is experimental, that static mode tracking is limited, and that its selected runtime cases do not prove complete processor correctness. `src/test/java/ghidra65816/PcodeEmulatorRegressionTest.java` now has 33 runtime test methods after the bank-boundary additions in PRs #13 and #14. This is useful progress, but still not systematic coverage of a 256-opcode ISA with many addressing modes and multiple processor states.
 
 The best route to improving the project's status is therefore:
 
@@ -82,20 +83,23 @@ The repo owner should first decide whether the product target is a generic W65C8
 
 The existing workflow pins a Ghidra release/hash, compiles SLEIGH, checks repeatability and runs runtime tests. Keep that. Improve confidence by adding broader semantic comparisons, decompiler fixtures and a supported-version policy. Publish clear releases only when the test matrix and limitations are reviewed and accurately described.
 
-## Proposed work order
+## Roadmap tracking
 
-| Priority | Work item | Acceptance evidence |
-|---|---|---|
-| P0 | Define target scope: generic 65816, SNES workflow, or both as separate layers | One-page scope and support matrix |
-| P0 | Build the SingleStepTests adapter and add a small CI sample | State/memory comparison is reproducible; mismatches are reported with opcode, mode and input |
-| P0 | Add targeted program-bank boundary tests | Fetch, operand, branch and return cases pass known reference cases |
-| P1 | Extend tests across addressing modes, M/X/E states, flags and stack operations | Published opcode/mode/state coverage summary; failures become regression tests |
-| P1 | Add decompiler fixtures for immediate values and near/far calls | Stable before/after output and explicit call/return/stack assertions |
-| P1 | Prototype cautious automatic context propagation | Known-state paths improve without forcing a wrong decode at ambiguous joins |
-| P2 | Add vector/entry-point helper or optional analyzer | Correct bank-zero targets and repeatable behavior on fixture programs |
-| P2 | Add SNES loader integration if SNES is in scope | LoROM/HiROM fixture images map to expected addresses and vectors |
-| P3 | Add 65802 support if user demand justifies it | Separate compatibility matrix and passing variant-specific tests |
-| P3 | Release, support matrix and troubleshooting guide | Versioned extension, clear known limitations, repeatable installation |
+**Status reviewed:** 2026-10-21. Status is based on merged PRs and the current source tree; “partial” means the acceptance criteria are not fully met.
+
+| Priority | Work item | Status and evidence | Next step |
+|---|---|---|---|
+| P0 | Define target scope: generic 65816, SNES workflow, or both as separate layers | **Complete.** [PR #11](https://github.com/kaayzouee/ghidra-65816/pull/11) merged. `docs/SUPPORT.md` defines the W65C816 core and keeps SNES loading/memory mapping separate. | Revisit only if project goals change. |
+| P0 | Build the SingleStepTests adapter and add a small CI sample | **Partial.** [PR #12](https://github.com/kaayzouee/ghidra-65816/pull/12) merged. One fixture checks initial/final CPU state and listed RAM bytes; its docs explicitly call it a format smoke test, not broad corpus coverage. | Expand a small deterministic sample across representative opcodes and modes; include enough fixture context in failure messages to diagnose mismatches. |
+| P0 | Add targeted program-bank boundary tests | **Partial.** [PR #13](https://github.com/kaayzouee/ghidra-65816/pull/13) and [PR #14](https://github.com/kaayzouee/ghidra-65816/pull/14) merged. Coverage includes data-bank indexed carry, a straddling 16-bit read, BRA/BRL PC wrap, and JSR/RTS plus JSL/RTL return behavior. | Fill gaps in fetch/operand-byte lengths and pointer forms; keep instruction-fetch wrapping separate from data-pointer rules. |
+| P1 | Extend tests across addressing modes, M/X/E states, flags and stack operations | **In progress.** The P-Code runtime test class has 33 test methods, but there is no systematic opcode × addressing-mode × state coverage matrix. | Add filtered SingleStepTests cases and publish a compact coverage summary; turn confirmed mismatches into minimal regressions. |
+| P1 | Add decompiler fixtures for immediate values and near/far calls | **Not started.** Runtime JSR/JSL tests do not measure decompiler output, call recovery, or stack conventions. | Capture baseline output for immediate constants and JSR/RTS plus JSL/RTL before changing `65816.cspec` or immediate-operand modelling. |
+| P1 | Prototype cautious automatic context propagation | **Not started.** The supported-scope documentation retains the limitations around status restored from runtime stack state and Carry-dependent XCE behavior. | Prototype only provably known-state paths, with ambiguous joins and unknown stack bytes left unknown/manual. |
+| P2 | Add vector/entry-point helper or optional analyzer | **Not started.** Vector symbols exist, but the README still says entry points may need to be added manually. | Add a fixture-backed helper only after defining bank-zero vector and context behavior. |
+| P2 | Add SNES loader integration if SNES is in scope | **Deferred as a separate integration.** `docs/SUPPORT.md` keeps platform mapping outside the CPU core. [joshleaves/ghidra-snes](https://github.com/joshleaves/ghidra-snes) is the primary precedent already identified. | Do not add a loader to the processor core; decide whether a companion project is wanted before starting loader work. |
+| P3 | Add 65802 support if user demand justifies it | **Deferred / unsupported.** `docs/SUPPORT.md` requires a separate compatibility matrix and variant-specific tests first. | Leave deferred until there is a concrete user requirement. |
+| P3 | Release, support matrix and troubleshooting guide | **Partial.** README, `DEVELOPMENT.md`, and `docs/SUPPORT.md` cover current use and scope; a versioned release/support policy is not yet tracked as completed evidence. | Add a supported Ghidra/Java matrix and release/troubleshooting steps before claiming stable support. |
+
 
 KISS rule: each row should be a small PR with a test that fails before the fix. Do not combine a semantic fix, loader work and documentation restructuring in one PR.
 
@@ -114,8 +118,9 @@ Scores estimate how directly each resource can remove the current limitations, n
 | 7 | [Ghidra source: 6502 processor](https://github.com/NationalSecurityAgency/ghidra/tree/master/Ghidra/Processors/6502) and [developer guide](https://github.com/NationalSecurityAgency/ghidra/blob/master/DevGuide.md) | 8/10 | Learn existing processor-module structure, extension APIs, data types, analyzers and test patterns; use the user-provided [Ghidra fork](https://github.com/kaayzouee/ghidra) for browsing if convenient | Use the exact version/tag matching CI to avoid copying APIs or examples that drifted in newer source |
 | 8 | [Original archived processor module](https://github.com/achan1989/ghidra-65816) | 7.5/10 | History, design intent, legacy limitations and license/attribution context | Explicitly archived/unmaintained and warns that the implementation is early; treat it as history, not authority |
 | 9 | [65816 test-ROM discussion and suite pointer](https://forums.nesdev.org/viewtopic.php?t=24940) | 7/10 | End-to-end execution fixtures covering many instructions, addressing modes and widths | ROM tests can be harder to triage than single-instruction cases and do not cover every timing or hardware integration behavior |
-| 10 | [REA](https://github.com/morluto/rea) / [REA website](https://rea.tools/) | 4.5/10 | Speed up repository exploration and repeatable reverse-engineering workflows after core tests exist | It is a workflow/tooling aid, not an independent processor-correctness oracle |
-| 11 | [update-ghidra-version packaging](https://github.com/kaayzouee/update-ghidra-version/tree/master/pkgs/tools/security/ghidra) | 3.5/10 | Reproducible Ghidra packaging, pinning, patches and extension distribution | Little direct value for CPU semantics or analysis correctness; revisit when release/install support is a priority |
+| 10 | [jsmoo](https://github.com/raddad772/jsmoo) | 7/10 | Independent MIT-licensed multi-system emulator with 65816/SNES support; use it as another implementation when cross-checking disputed flags, state transitions, and addressing cases | A second implementation is a cross-check, not a specification; verify the exact test case and current implementation before relying on it | 
+| 11 | [REA](https://github.com/morluto/rea) / [REA website](https://rea.tools/) | 4.5/10 | Speed up repository exploration and repeatable reverse-engineering workflows after core tests exist | It is a workflow/tooling aid, not an independent processor-correctness oracle |
+| 12 | [update-ghidra-version packaging](https://github.com/kaayzouee/update-ghidra-version/tree/master/pkgs/tools/security/ghidra) | 3.5/10 | Reproducible Ghidra packaging, pinning, patches and extension distribution | Little direct value for CPU semantics or analysis correctness; revisit when release/install support is a priority |
 
 ## Website/repository research notes
 
@@ -139,6 +144,7 @@ Keep context propagation, vector discovery, SNES loader integration and 65802 su
 - [WDC W65C816S datasheet (PDF)](https://www.westerndesigncenter.com/wdc/documentation/w65c816s.pdf)
 - [SingleStepTests/65816](https://github.com/SingleStepTests/65816)
 - [MAME 65816 source](https://github.com/mamedev/mame/tree/master/src/devices/cpu/g65816)
+- [jsmoo multi-system emulator](https://github.com/raddad772/jsmoo)
 - [Ghidra language specification docs](https://ghidra.re/ghidra_docs/languages/index.html)
 - [Ghidra 12.1 PcodeEmulator API](https://www.ghidradocs.com/12.1_PUBLIC/docs/GhidraAPI_javadoc/api/ghidra/pcode/emu/PcodeEmulator.html)
 - [SNES Ghidra extension](https://github.com/joshleaves/ghidra-snes)
