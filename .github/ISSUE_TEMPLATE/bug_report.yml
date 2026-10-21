@@ -1,0 +1,78 @@
+name: Bug report
+description: Report an incorrect analysis result, processor-semantic bug, or development/test failure.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please search existing issues first. For CPU behavior, include a minimal instruction sequence and expected versus actual behavior when possible.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What is wrong?
+      placeholder: A concise description of the incorrect behavior.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Disassembly / instruction decoding
+        - P-code / CPU semantics
+        - Registers, flags, or CPU mode
+        - Bank boundaries / addressing
+        - Control flow / calls and returns
+        - Build / SLEIGH compilation
+        - Tests / CI
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Include instruction bytes, starting address and relevant CPU state, if applicable.
+      placeholder: |
+        Start address / PBR:
+        Instruction bytes:
+        Relevant registers and flags:
+        Steps to reproduce:
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: Reference the W65C816 documentation, trusted test vector, or other source where possible.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Environment
+      description: Ghidra version, repository commit, OS, and Java version if relevant.
+      placeholder: "Ghidra 12.1.4; commit SHA; OS; Java 21"
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Logs, screenshots, or test vectors
+      description: Paste relevant logs or add links to small, reproducible examples.
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues for a duplicate.
+          required: true
+        - label: I provided enough information to reproduce or investigate the issue.
+          required: true
