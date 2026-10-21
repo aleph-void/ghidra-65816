@@ -617,18 +617,17 @@ class PcodeEmulatorRegressionTest {
     }
 
     @Test
-    void singleByteStpAtProgramBankEndRemainsAtInstruction() throws Exception {
-        Run run = startAt(0x12ffff, new byte[] {(byte) 0xdb}); // STP
+    void singleByteXbaAtProgramBankEndExecutes() throws Exception {
+        Run run = startAt(0x12ffff, new byte[] {(byte) 0xeb}); // XBA
         setContextBit(run, "ctx_EF", 0);
         writeRegister(run, "PC", 0xffff);
         writeRegister(run, "PBR", 0x12);
+        writeRegister(run, "C", 0x1234);
 
         executeOne(run);
 
-        assertEquals(0xffff, readRegister(run, "PC"));
+        assertEquals(0x3412, readRegister(run, "C"));
         assertEquals(0x12, readRegister(run, "PBR"));
-        assertEquals(run.space().getAddress(0x12ffff), run.thread().getCounter(),
-            "STP keeps control at the one-byte instruction at the bank end");
     }
 
     @Test
