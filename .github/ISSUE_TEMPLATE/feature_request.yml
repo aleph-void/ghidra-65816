@@ -1,0 +1,51 @@
+name: Feature request
+description: Propose a processor-analysis improvement or development workflow enhancement.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: What workflow or analysis limitation would this address?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the behavior you would like and any alternatives considered.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Instruction decoding / disassembly
+        - P-code / CPU semantics
+        - Registers, flags, or CPU mode
+        - Bank-aware addressing / control flow
+        - Platform or loader integration
+        - Tests / CI / developer tooling
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: semantics
+    attributes:
+      label: References and evidence
+      description: For CPU behavior, link the relevant W65C816 reference, trusted test vector, or independent implementation. If this is a workflow request, explain the expected result.
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and alternatives
+      description: Note constraints, compatibility concerns, or a smaller alternative if known.
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and discussions for a similar request.
+          required: true
