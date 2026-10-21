@@ -42,6 +42,8 @@ Ghidra's `PcodeEmulator`. The current runtime suite contains focused regression 
 | `PHP` / `PLP` | Emulation-mode status image bits, live flag restore, and ignored B bit |
 | `RTI` | Emulation-mode status/PC restoration and stack pointer movement |
 | `BRK` / `COP` | Emulation-mode status push ordering, program-bank clearing, and vector transfer |
+| `JMP` / `JML` | Absolute and absolute-long control transfers use their computed target addresses |
+| `JSR` / `RTS` / `JSL` / `RTL` | Near/far calls at the end of a program bank; stacked return bytes, PC wrap, and PBR restoration |
 | `MVN` / `MVP` | Block-copy direction, count, bank selection, and index-width behavior |
 | `LDA` / `BRA` / `BRL` | Data-bank carry and straddling reads; program-bank-relative branch wrap |
 

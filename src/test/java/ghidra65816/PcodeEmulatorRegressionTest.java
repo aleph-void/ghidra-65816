@@ -587,6 +587,96 @@ class PcodeEmulatorRegressionTest {
     }
 
     @Test
+    void jmpAbsoluteTransfersToAddressValue() throws Exception {
+        Run run = startAt(0x120000, new byte[] {0x4c, 0x34, 0x12}); // JMP $1234
+        setContextBit(run, "ctx_EF", 0);
+        writeRegister(run, "PC", 0x0000);
+        writeRegister(run, "PBR", 0x12);
+        writeMemory(run, 0x121234, new byte[] {(byte) 0xea}); // NOP
+
+        executeOne(run);
+
+        assertEquals(run.space().getAddress(0x121234), run.thread().getCounter());
+        assertEquals(0x1234, readRegister(run, "PC"));
+        assertEquals(0x12, readRegister(run, "PBR"));
+    }
+
+    @Test
+    void jmlAbsoluteLongTransfersToAddressValue() throws Exception {
+        Run run = startAt(0x12fffc, new byte[] {0x5c, 0x78, 0x56, 0x34}); // JML $345678
+        setContextBit(run, "ctx_EF", 0);
+        writeRegister(run, "PC", 0xfffc);
+        writeRegister(run, "PBR", 0x12);
+        writeMemory(run, 0x345678, new byte[] {(byte) 0xea}); // NOP
+
+        executeOne(run);
+
+        assertEquals(run.space().getAddress(0x345678), run.thread().getCounter());
+        assertEquals(0x5678, readRegister(run, "PC"));
+        assertEquals(0x34, readRegister(run, "PBR"));
+    }
+
+    @Test
+    void jsrAtProgramBankEndReturnsThroughRtsWithinTheSameBank() throws Exception {
+        Run run = startAt(0x12fffd, new byte[] {0x20, 0x34, 0x12}); // JSR $1234
+        setContextBit(run, "ctx_EF", 0);
+        writeRegister(run, "PC", 0xfffd);
+        writeRegister(run, "PBR", 0x12);
+        writeRegister(run, "SP", 0x01ff);
+        writeMemory(run, 0x121234, new byte[] {0x60}); // RTS
+
+        executeOne(run);
+
+        assertEquals(run.space().getAddress(0x121234), run.thread().getCounter(),
+            "JSR must transfer to the RAM address selected by its absolute operand");
+        assertEquals(0x1234, readRegister(run, "PC"));
+        assertEquals(0x12, readRegister(run, "PBR"));
+        assertEquals(0x01fd, readRegister(run, "SP"));
+        assertEquals(0xff, readMemory(run, 0x01fe, 1), "JSR pushes return-address low byte");
+        assertEquals(0xff, readMemory(run, 0x01ff, 1), "JSR pushes return-address high byte");
+
+        executeOne(run);
+
+        assertEquals(run.space().getAddress(0x120000), run.thread().getCounter(),
+            "RTS return must wrap within the caller's program bank");
+        assertEquals(0x0000, readRegister(run, "PC"),
+            "RTS increments $FFFF and wraps PC without changing PBR");
+        assertEquals(0x12, readRegister(run, "PBR"));
+        assertEquals(0x01ff, readRegister(run, "SP"));
+    }
+
+    @Test
+    void jslAtProgramBankEndReturnsThroughRtlAcrossBanks() throws Exception {
+        Run run = startAt(0x12fffc, new byte[] {0x22, 0x78, 0x56, 0x34}); // JSL $345678
+        setContextBit(run, "ctx_EF", 0);
+        writeRegister(run, "PC", 0xfffc);
+        writeRegister(run, "PBR", 0x12);
+        writeRegister(run, "SP", 0x01ff);
+        writeMemory(run, 0x345678, new byte[] {0x6b}); // RTL
+
+        executeOne(run);
+
+        assertEquals(run.space().getAddress(0x345678), run.thread().getCounter(),
+            "JSL must transfer to the full 24-bit RAM target");
+        assertEquals(0x5678, readRegister(run, "PC"));
+        assertEquals(0x34, readRegister(run, "PBR"));
+        assertEquals(0x01fc, readRegister(run, "SP"));
+        assertEquals(0xff, readMemory(run, 0x01fd, 1), "JSL pushes return-address low byte");
+        assertEquals(0xff, readMemory(run, 0x01fe, 1), "JSL pushes return-address high byte");
+        assertEquals(0x12, readMemory(run, 0x01ff, 1), "JSL pushes caller's program bank");
+
+        executeOne(run);
+
+        assertEquals(run.space().getAddress(0x120000), run.thread().getCounter(),
+            "RTL return must restore the caller's bank and wrapped PC");
+        assertEquals(0x0000, readRegister(run, "PC"),
+            "RTL increments $FFFF and wraps the caller's PC");
+        assertEquals(0x12, readRegister(run, "PBR"),
+            "RTL restores the caller's bank from the stack");
+        assertEquals(0x01ff, readRegister(run, "SP"));
+    }
+
+    @Test
     void singleStepTestsReadmeVectorMatchesProcessorStateAndMemory() throws Exception {
         JsonObject fixture;
         Path fixturePath = Path.of("src/test/resources/singlestep/3d.e.json");
