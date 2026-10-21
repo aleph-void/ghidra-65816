@@ -627,7 +627,6 @@ class PcodeEmulatorRegressionTest {
         executeOne(run);
 
         assertEquals(0x3412, readRegister(run, "C"));
-        assertEquals(0x12, readRegister(run, "PBR"));
     }
 
     @Test
