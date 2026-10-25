@@ -10,7 +10,8 @@
 #    combination: Ghidra vs MAME (test/compare.py), and, with CC65_BIN, re-assembly of Ghidra's
 #    output by ca65 (test/asm_roundtrip.py)
 # 4. context tracking (test/ctx-test.sh), p-code emulation (test/emu-test.sh, 65816 and 65802),
-#    upstream-issue regressions (test/issues-test.sh), vector entry points (test/vectors-test.sh)
+#    upstream-issue regressions (test/issues-test.sh), vector entry points (test/vectors-test.sh),
+#    SNES loader boards (test/loader-test.sh)
 #    and upstream's source tests (tests/)
 # 5. SINGLESTEP=1: SingleStepTests/65816, 50 tests per opcode and mode (downloads ~3 GB once,
 #    keeps 13 MB; test/fetch-singlestep.py, test/singlestep-test.sh)
@@ -68,6 +69,7 @@ CA65=${CC65_BIN:+$CC65_BIN/ca65} LD65=${CC65_BIN:+$CC65_BIN/ld65} EMU_DIR=emu658
 	"$HERE/emu-test.sh" "$WORK/emu65802.txt" | tail -1 | sed 's/^emulator/65802 emulator/' | tee -a "$WORK/report.txt"
 CA65=${CC65_BIN:+$CC65_BIN/ca65} LD65=${CC65_BIN:+$CC65_BIN/ld65} "$HERE/issues-test.sh" "$WORK/issues" | tail -1 | tee -a "$WORK/report.txt"
 CA65=${CC65_BIN:+$CC65_BIN/ca65} LD65=${CC65_BIN:+$CC65_BIN/ld65} "$HERE/vectors-test.sh" "$WORK/vectors" | tail -1 | tee -a "$WORK/report.txt"
+"$HERE/loader-test.sh" "$WORK/loader" | tail -1 | tee -a "$WORK/report.txt"
 python3 -m unittest discover --start-directory "$MOD/tests" 2>&1 | tail -1 | sed 's/^/upstream source tests: /' | tee -a "$WORK/report.txt"
 
 if [[ -n ${SINGLESTEP:-} ]]; then
