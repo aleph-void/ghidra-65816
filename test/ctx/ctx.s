@@ -51,6 +51,23 @@ reset:  .a8
         .i8
         lda #$22                ; expect lda8
         ldx #$33                ; expect ldx8
+        clc
+        xce                     ; native, M=X=1
+        rep #$31                ; 16-bit widths, carry clear
+        .a16
+        .i16
+        lda #$4321              ; expect lda16
+        sep #$01                ; carry set by SEP (not SEC): widths unchanged
+        xce                     ; carry set: emulation, M=X=1
+        .a8
+        .i8
+        lda #$a1                ; expect lda8
+        rep #$01                ; carry clear by REP (not CLC)
+        xce                     ; native again
+        rep #$30
+        .a16
+        .i16
+        lda #$a2a3              ; expect lda16 (REP cannot clear M in emulation mode)
         bra done
 sub16:  .a8
         .i16
