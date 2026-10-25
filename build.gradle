@@ -1,25 +1,56 @@
-// Builds an installable Ghidra extension (targets Ghidra 12.1.4):
+// Upstream's build: JUnit runtime tests against Ghidra's PcodeEmulator (see DEVELOPMENT.md).
+// Ghidra-Rare also builds the installable extension from it (targets Ghidra 12.1.3/12.1.4/12.2):
 //   GHIDRA_INSTALL_DIR=/path/to/ghidra_12.1.4_PUBLIC gradle buildExtension
-def ghidraInstallDir
-if (System.env.GHIDRA_INSTALL_DIR) {
-	ghidraInstallDir = System.env.GHIDRA_INSTALL_DIR
-}
-else if (project.hasProperty("GHIDRA_INSTALL_DIR")) {
-	ghidraInstallDir = project.getProperty("GHIDRA_INSTALL_DIR")
-}
-if (ghidraInstallDir) {
-	apply from: new File(ghidraInstallDir).getCanonicalPath() + "/support/buildExtension.gradle"
-}
-else {
-	throw new GradleException("GHIDRA_INSTALL_DIR is not defined!")
+plugins {
+    id 'java'
 }
 
-// The module has no third-party dependencies. buildExtension.gradle's copyDependencies would
-// otherwise copy every jar it finds under Ghidra/Processors into lib/, including other
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation 'com.google.code.gson:gson:2.11.0'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.10.2'
+}
+
+def ghidraInstallDir = System.getenv('GHIDRA_INSTALL_DIR')
+if (!ghidraInstallDir && project.hasProperty('GHIDRA_INSTALL_DIR')) {
+    ghidraInstallDir = project.getProperty('GHIDRA_INSTALL_DIR')
+}
+if (!ghidraInstallDir) {
+    throw new GradleException('GHIDRA_INSTALL_DIR must point to a Ghidra 12.1.4 installation')
+}
+
+apply from: new File(ghidraInstallDir).getCanonicalPath() + '/support/buildExtension.gradle'
+
+// The module has no third-party runtime dependencies. buildExtension.gradle's copyDependencies
+// would otherwise copy every jar it finds under Ghidra/Processors into lib/, including other
 // modules' jars when those are symlinked in from outside the Ghidra install.
 copyDependencies.enabled = false
 
-// Release zips carry only what Ghidra loads; generators and test suites stay in the repository.
+// Release zips carry only what Ghidra loads; test suites and CI scripts stay in the repository.
 buildExtension {
-	exclude 'test/**'
+    exclude 'test/**', 'tests/**', 'src/test/**', 'scripts/**'
+}
+
+test {
+    useJUnitPlatform()
+
+    // Ghidra documents this factory override for Gradle test JVMs. Without it,
+    // HeadlessGhidraApplicationConfiguration can fail during startup on Java 21
+    // with "Cannot replace filter factory: BuiltinFilterFactory".
+    systemProperty 'jdk.serialFilterFactory', 'ghidra.framework.remote.GhidraSerialFilterFactory'
+
+    testLogging {
+        events 'started', 'passed', 'failed', 'skipped', 'standardOut', 'standardError'
+        showStandardStreams = true
+        exceptionFormat 'full'
+    }
+
+    def externalModules = System.getenv('GHIDRA_EXTERNAL_MODULES')
+    if (externalModules) {
+        systemProperty 'ghidra.external.modules', externalModules
+    }
 }
