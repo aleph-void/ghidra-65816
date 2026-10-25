@@ -16,6 +16,8 @@
 # 5. SINGLESTEP=1: SingleStepTests/65816, 50 tests per opcode and mode (downloads ~3 GB once,
 #    keeps 13 MB; test/fetch-singlestep.py, test/singlestep-test.sh)
 # 6. REAL_SAMPLES=<dir>: fetched homebrew ROMs (test/real-binaries.sh; MAME traces if installed)
+# 7. GRADLE_GHIDRA=<Ghidra 12.1.4 without this module>: upstream's JUnit P-code tests
+#    (gradle test, see DEVELOPMENT.md)
 # Report: <workdir>/report.txt
 set -euo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -80,5 +82,18 @@ fi
 if [[ -n ${REAL_SAMPLES:-} ]]; then
 	echo "[6] real binaries"
 	"$HERE/real-binaries.sh" "$REAL_SAMPLES" "$WORK/real" "$DIS" 10 | tee -a "$WORK/report.txt"
+fi
+if [[ -n ${GRADLE_GHIDRA:-} ]]; then
+	# upstream's JUnit P-code tests (DEVELOPMENT.md). GRADLE_GHIDRA is a Ghidra 12.1.4 install
+	# WITHOUT this module under Ghidra/Processors: the tests load it as an external module.
+	echo "[7] upstream JUnit tests (gradle test)"
+	ext=$WORK/extmod/ghidra-65816
+	rm -rf "$ext" && mkdir -p "$ext" && cp "$MOD/Module.manifest" "$ext/"
+	bash "$MOD/scripts/ci/compile-sleigh.sh" "$GRADLE_GHIDRA" "$ext/data/languages" >/dev/null
+	(cd "$MOD" && GHIDRA_INSTALL_DIR=$GRADLE_GHIDRA GHIDRA_EXTERNAL_MODULES=$ext \
+		gradle --no-daemon test >"$WORK/gradle-test.log" 2>&1) \
+		&& r=passed || r=FAILED
+	echo "upstream JUnit tests: $r ($(grep -c "PASSED" "$WORK/gradle-test.log") passed, \
+$(grep -c " FAILED" "$WORK/gradle-test.log") failed)" | tee -a "$WORK/report.txt"
 fi
 echo "report: $WORK/report.txt"

@@ -152,4 +152,27 @@ class NativeStatusPullRegressionTest {
         assertEquals(0x7a, readRegister(run, "PBR"));
         assertEquals(0x0200, readRegister(run, "SP"));
     }
+
+    // kaayzouee/ghidra-65816#9: native RTI with the stacked X flag clear keeps the index high bytes.
+    @Test
+    void nativeRtiPreservesIndexHighBytesWhenPulledXFlagIsClear() throws Exception {
+        Run run = start(new byte[] {0x40}); // RTI
+        setContextBit(run, "ctx_EF", 0);
+        setContextBit(run, "ctx_XF", 0);
+        writeRegister(run, "SP", 0x01fc);
+        writeRegister(run, "X", 0x1234);
+        writeRegister(run, "Y", 0x5678);
+        writeMemory(run, 0x01fd, new byte[] {0x01}); // X=0, C=1
+        writeMemory(run, 0x01fe, new byte[] {0x34, 0x12}); // PC = $1234
+        writeMemory(run, 0x0200, new byte[] {0x7a}); // PBR = $7a
+
+        executeOne(run);
+
+        assertEquals(0x1234, readRegister(run, "X"));
+        assertEquals(0x5678, readRegister(run, "Y"));
+        assertEquals(1, readRegister(run, "CF"));
+        assertEquals(0x1234, readRegister(run, "PC"));
+        assertEquals(0x7a, readRegister(run, "PBR"));
+        assertEquals(0x0200, readRegister(run, "SP"));
+    }
 }
