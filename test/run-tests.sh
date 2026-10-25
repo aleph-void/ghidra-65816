@@ -9,7 +9,9 @@
 # 3. decode corpus (every opcode with edge/random operands + random words) under every M/X/E
 #    combination: Ghidra vs MAME (test/compare.py), and, with CC65_BIN, re-assembly of Ghidra's
 #    output by ca65 (test/asm_roundtrip.py)
-# 4. context tracking (test/ctx-test.sh) and p-code emulation (test/emu-test.sh)
+# 4. context tracking (test/ctx-test.sh), p-code emulation (test/emu-test.sh, 65816 and 65802),
+#    upstream-issue regressions (test/issues-test.sh), vector entry points (test/vectors-test.sh)
+#    and upstream's source tests (tests/)
 # 5. SINGLESTEP=1: SingleStepTests/65816, 50 tests per opcode and mode (downloads ~3 GB once,
 #    keeps 13 MB; test/fetch-singlestep.py, test/singlestep-test.sh)
 # 6. REAL_SAMPLES=<dir>: fetched homebrew ROMs (test/real-binaries.sh; MAME traces if installed)
@@ -59,9 +61,14 @@ for mxe in ("000", "010", "100", "110", "111"):
 print(f"every-opcode decode: {5 * 256 - len(bad)}/{5 * 256} opcode x mode entries decode", bad[:10])
 PY
 
-echo "[4] context tracking + emulation"
+echo "[4] context tracking, emulation, issue regressions, vectors"
 CA65=${CC65_BIN:+$CC65_BIN/ca65} LD65=${CC65_BIN:+$CC65_BIN/ld65} "$HERE/ctx-test.sh" "$WORK/ctx" | tail -1 | tee -a "$WORK/report.txt"
 CA65=${CC65_BIN:+$CC65_BIN/ca65} LD65=${CC65_BIN:+$CC65_BIN/ld65} "$HERE/emu-test.sh" "$WORK/emu.txt" | tail -1 | tee -a "$WORK/report.txt"
+CA65=${CC65_BIN:+$CC65_BIN/ca65} LD65=${CC65_BIN:+$CC65_BIN/ld65} EMU_DIR=emu65802 EMU_LANG=65802:LE:16:default \
+	"$HERE/emu-test.sh" "$WORK/emu65802.txt" | tail -1 | sed 's/^emulator/65802 emulator/' | tee -a "$WORK/report.txt"
+CA65=${CC65_BIN:+$CC65_BIN/ca65} LD65=${CC65_BIN:+$CC65_BIN/ld65} "$HERE/issues-test.sh" "$WORK/issues" | tail -1 | tee -a "$WORK/report.txt"
+CA65=${CC65_BIN:+$CC65_BIN/ca65} LD65=${CC65_BIN:+$CC65_BIN/ld65} "$HERE/vectors-test.sh" "$WORK/vectors" | tail -1 | tee -a "$WORK/report.txt"
+python3 -m unittest discover --start-directory "$MOD/tests" 2>&1 | tail -1 | sed 's/^/upstream source tests: /' | tee -a "$WORK/report.txt"
 
 if [[ -n ${SINGLESTEP:-} ]]; then
 	echo "[5] SingleStepTests"
