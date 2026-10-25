@@ -276,7 +276,8 @@ class InstructionSemanticRegressionTests(unittest.TestCase):
         blocks = instruction_blocks("STP")
         self.assertEqual(len(blocks), 1)
         _, body = blocks[0]
-        self.assertIn("stop();", body)
+        # The halt is the self-loop (no pcodeop, so emulators do not fail on it).
+        self.assertNotIn("stop();", body)
         self.assertIn("goto inst_start;", body)
         self.assertNotIn("0x00FFFC", body)
         self.assertNotRegex(body, r"\bgoto\s+\[")

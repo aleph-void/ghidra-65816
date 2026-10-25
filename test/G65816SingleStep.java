@@ -77,7 +77,11 @@ public class G65816SingleStep extends GhidraScript {
 				StringBuilder d = new StringBuilder();
 				long gotPc = emu.readRegister(pc).longValue();
 				long wantPc = fin.get("pbr").getAsLong() << 16 | fin.get("pc").getAsLong();
-				if (gotPc != wantPc) {
+				// STP halts: the model stays on the STP (a self-loop); SingleStepTests' final state
+				// is taken after the opcode fetch (PC+1). Accept the halted PC for STP only.
+				boolean haltedStp = name.startsWith("db ") &&
+					gotPc == (in.get("pbr").getAsLong() << 16 | in.get("pc").getAsLong());
+				if (gotPc != wantPc && !haltedStp) {
 					d.append(String.format(" PC %06x!=%06x", gotPc, wantPc));
 				}
 				String[][] regs = { { "C", "a" }, { "X", "x" }, { "Y", "y" }, { "SP", "s" },
