@@ -218,7 +218,11 @@ macro pack_bank_addr16(_out, _bank, _addr16) {
 
     local bank24:3 = zext(bank8);
     local addr24:3 = zext(addr16);
+@ifdef IS_65802
+    local result:3 = addr24;  # 65802: the bank byte never reaches the bus
+@else
     local result:3 = (bank24 << 16) | addr24;
+@endif
     _out = result;
 }
 
@@ -228,6 +232,9 @@ macro pack_bank_addr16(_out, _bank, _addr16) {
 macro deref_read8(_out, _ref) {
     local big_ref_lo:6 = _ref >> 24;
     local ref_lo:3 = big_ref_lo:3;
+@ifdef IS_65802
+    ref_lo = ref_lo & 0xffff;  # 65802: 16-bit address bus
+@endif
     _out = *:1 ref_lo;
 }
 
@@ -235,8 +242,14 @@ macro deref_read8(_out, _ref) {
 macro deref_read16(_out, _ref) {
     local big_ref_lo:6 = _ref >> 24;
     local ref_lo:3 = big_ref_lo:3;
+@ifdef IS_65802
+    ref_lo = ref_lo & 0xffff;  # 65802: 16-bit address bus
+@endif
     local big_ref_hi:6 = _ref & 0xffffff;
     local ref_hi:3 = big_ref_hi:3;
+@ifdef IS_65802
+    ref_hi = ref_hi & 0xffff;
+@endif
     local data_lo:1 = *:1 ref_lo;
     local data_hi:1 = *:1 ref_hi;
     local data:2; pack_lo_hi(data, data_lo, data_hi);
@@ -247,6 +260,9 @@ macro deref_read16(_out, _ref) {
 macro deref_write8(_data, _ref) {
     local big_ref_lo:6 = _ref >> 24;
     local ref_lo:3 = big_ref_lo:3;
+@ifdef IS_65802
+    ref_lo = ref_lo & 0xffff;  # 65802: 16-bit address bus
+@endif
     *:1 ref_lo = _data;
 }
 
@@ -254,8 +270,14 @@ macro deref_write8(_data, _ref) {
 macro deref_write16(_data, _ref) {
     local big_ref_lo:6 = _ref >> 24;
     local ref_lo:3 = big_ref_lo:3;
+@ifdef IS_65802
+    ref_lo = ref_lo & 0xffff;  # 65802: 16-bit address bus
+@endif
     local big_ref_hi:6 = _ref & 0xffffff;
     local ref_hi:3 = big_ref_hi:3;
+@ifdef IS_65802
+    ref_hi = ref_hi & 0xffff;
+@endif
     *:1 ref_lo = _data:1;
     *:1 ref_hi = _data(1);
 }

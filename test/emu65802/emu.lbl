@@ -1,0 +1,10 @@
+al 008027 .sub_jsl
+al 008022 .t_jsl
+al 00801E .jml_tgt
+al 008019 .t_jml
+al 008015 .t_mvn
+al 008012 .t_ldadil
+al 00800D .t_stalong
+al 008009 .t_ldaabsx
+al 008005 .t_ldadbr
+al 008000 .t_ldalong

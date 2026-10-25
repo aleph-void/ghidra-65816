@@ -31,7 +31,8 @@ public class VectorEntryPointAnalyzer extends AbstractAnalyzer {
 
 	@Override
 	public boolean canAnalyze(Program program) {
-		return program.getLanguage().getProcessor().toString().equals("65816") &&
+		String proc = program.getLanguage().getProcessor().toString();
+		return (proc.equals("65816") || proc.equals("65802")) &&
 			!SnesRomLoader.NAME.equals(program.getExecutableFormat());
 	}
 

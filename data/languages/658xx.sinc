@@ -7,7 +7,8 @@
 # when analysing an instruction at the end of a program bank if the operands wrap at the bank
 # boundary.
 
-# UNSUPPORTED: 65802 variant.
+# 65802 variant: 65802.slaspec defines IS_65802. The instruction set is the 65816's; the
+# 16-bit address bus is modelled by masking every bus address to bank 0 (see GHIDRA-RARE.md).
 # UNSUPPORTED: correct behaviour when an instruction and its operand(s) wrap at the end of the
 #              program bank.
 # UNSUPPORTED: when pulling the context flags MF and XF from the stack Ghidra does not
@@ -1550,7 +1551,11 @@ macro do_ror16(_out, _data) {
     # "Unlike the RTS instruction, the program counter address pulled off the stack is the exact
     # address to return to... It does not need to be incremented as a subroutine’s return address
     # does."
+@ifdef IS_65802
+    local ret_addr:3 = zext(pc);  # 65802: 16-bit address bus
+@else
     local ret_addr:3 = (zext(pbr) << 16) | zext(pc);
+@endif
     goto [ret_addr];
 }
 
@@ -1581,7 +1586,11 @@ macro do_ror16(_out, _data) {
     local pbr:1;
     pull8_native(pbr);
 
+@ifdef IS_65802
+    local ret_addr:3 = zext(pc);  # 65802: 16-bit address bus
+@else
     local ret_addr:3 = (zext(pbr) << 16) | zext(pc);
+@endif
     return [ret_addr];
 }
 
@@ -1596,7 +1605,11 @@ macro do_ror16(_out, _data) {
     local pbr:1;
     pull8_native(pbr);
 
+@ifdef IS_65802
+    local ret_addr:3 = zext(pc);  # 65802: 16-bit address bus
+@else
     local ret_addr:3 = (zext(pbr) << 16) | zext(pc);
+@endif
     SPHigh = 1;
     return [ret_addr];
 }

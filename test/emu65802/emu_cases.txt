@@ -1,0 +1,9 @@
+# 65802 p-code emulation cases (test/emu65802/emu.s); format as test/emu/emu_cases.txt.
+t_ldalong   110 mem:003456=a5 mem:123456=11  | A=a5 NF=1 ZF=0
+t_ldadbr    110 DBR=7e mem:002000=5a         | A=5a NF=0
+t_ldaabsx   110 X=0004 mem:000002=c3         | A=c3 NF=1
+t_stalong   110 C=00ab                       | mem:001000=ab
+t_ldadil    110 mem:000030=34127f mem:001234=66 | A=66
+t_mvn       000 C=0001 X=1000 Y=2000 mem:001000=beef | mem:002000=beef C=ffff X=1002 Y=2002 DBR=34
+t_jml       010                              | C=4242
+t_jsl       010 SP=1fff                      | C=1111 SP=1fff mem:001fff=00

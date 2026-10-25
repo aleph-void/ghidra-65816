@@ -46,14 +46,28 @@ MemAbsIndLongJmp: [!$imm16]    is imm16  {
     local addr_lo:1 = *:1 ind_lo_addr;
     local addr_hi:1 = *:1 ind_hi_addr;
     local addr_bank:1 = *:1 ind_bank_addr;
+@ifdef IS_65802
+    local address:3 = (zext(addr_hi) << 8) | zext(addr_lo);
+@else
     local address:3 = (zext(addr_bank) << 16) | (zext(addr_hi) << 8) | zext(addr_lo);
+@endif
     export address;
 }
 
 # Absolute long (exported as a code location, see MemAbsJmp).
+@ifdef IS_65802
+# 65802: the bank byte is loaded into PBR but never reaches the 16-bit address bus.
+Bank0Target: target    is imm24 [ target = imm24 $and 0xffff; ]  {
+    export *:3 target;
+}
+MemAbsLongJmp: !>$imm24    is imm24 & Bank0Target  {
+    export Bank0Target;
+}
+@else
 MemAbsLongJmp: !>$imm24    is imm24  {
     export *:3 imm24;
 }
+@endif
 
 # PC relative.
 # Wraps to stay within the bank of the current instruction.

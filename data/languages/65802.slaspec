@@ -1,0 +1,2 @@
+@define IS_65802 ""
+@include "658xx.sinc"
