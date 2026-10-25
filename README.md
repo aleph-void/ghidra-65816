@@ -7,6 +7,8 @@
 
 # Ghidra 65816
 
+[![Sponsor Aleph Void](https://img.shields.io/badge/Sponsor-Aleph%20Void-EA4AAA?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/aleph-void)
+
 A processor module for the WDC 65816 CPU in Ghidra.
 
 This is an experimental community continuation of the original
