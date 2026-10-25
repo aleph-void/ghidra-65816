@@ -8,12 +8,14 @@ import ghidra.app.util.importer.MessageLog;
 import ghidra.program.model.address.*;
 import ghidra.program.model.lang.Register;
 import ghidra.program.model.listing.*;
+import ghidra.program.model.listing.BookmarkType;
 import ghidra.util.exception.CancelledException;
 import ghidra.util.task.TaskMonitor;
 
 /**
- * Removes code that Ghidra's Reference analyzer disassembled at the target of a speculative data
- * reference ("Found code from operand reference") when nothing gave that code a decode context.
+ * Removes code that Ghidra disassembled at the target of a speculative data reference ("Found code
+ * from operand reference") or of a pointer held in data, when nothing gave that code a decode
+ * context.
  * <p>
  * Every 65816 operand length depends on M/X/E, so code decoded without a context (unset M/X/E,
  * read as 16-bit native) is guesswork; with immediates now visible as constants, constant
@@ -50,16 +52,47 @@ public class ContextlessCodeAnalyzer extends AbstractAnalyzer {
 				found.add(b);
 			}
 		});
+		// code started at a pointer that some data holds (Reference analyzer, pointer data)
+		Set<Address> starts = new LinkedHashSet<>();
 		for (Bookmark b : found) {
+			starts.add(b.getAddress());
+		}
+		for (Instruction ins : listing.getInstructions(set, true)) {
+			if (ins.getValue(mf, false) != null) {
+				continue;
+			}
+			boolean fromData = false, other = false;
+			for (var r : program.getReferenceManager().getReferencesTo(ins.getAddress())) {
+				if (!r.getReferenceType().isFlow() &&
+					listing.getInstructionContaining(r.getFromAddress()) == null &&
+					listing.getDefinedDataContaining(r.getFromAddress()) != null) {
+					fromData = true;
+				}
+				else if (r.getReferenceType().isFlow() &&
+					listing.getInstructionContaining(r.getFromAddress()) != null &&
+					listing.getInstructionContaining(r.getFromAddress()).getValue(mf,
+						false) == null) {
+					// a branch from the same context-less code: not a start
+				}
+				else {
+					other = true;
+				}
+			}
+			if (fromData && !other) {
+				starts.add(ins.getAddress());
+			}
+		}
+		for (Address start : starts) {
 			monitor.checkCancelled();
-			Instruction first = listing.getInstructionAt(b.getAddress());
+			Bookmark b = bm.getBookmark(start, BookmarkType.ANALYSIS, "Found Code");
+			Instruction first = listing.getInstructionAt(start);
 			if (first == null || first.getValue(mf, false) != null ||
-				program.getFunctionManager().getFunctionAt(b.getAddress()) != null &&
-					program.getReferenceManager().getReferenceCountTo(b.getAddress()) == 0) {
+				program.getFunctionManager().getFunctionAt(start) != null &&
+					program.getReferenceManager().getReferenceCountTo(start) == 0) {
 				continue;
 			}
 			AddressSet clear = new AddressSet();
-			Deque<Address> todo = new ArrayDeque<>(List.of(b.getAddress()));
+			Deque<Address> todo = new ArrayDeque<>(List.of(start));
 			while (!todo.isEmpty()) {
 				Instruction ins = listing.getInstructionAt(todo.poll());
 				if (ins == null || clear.contains(ins.getAddress()) ||
@@ -74,16 +107,30 @@ public class ContextlessCodeAnalyzer extends AbstractAnalyzer {
 					todo.add(t);
 				}
 			}
-			Function f = program.getFunctionManager().getFunctionAt(b.getAddress());
+			Function f = program.getFunctionManager().getFunctionAt(start);
 			if (f != null) {
-				program.getFunctionManager().removeFunction(b.getAddress());
+				program.getFunctionManager().removeFunction(start);
 			}
 			for (AddressRange r : clear) {
 				listing.clearCodeUnits(r.getMinAddress(), r.getMaxAddress(), false);
 			}
-			bm.removeBookmark(b);
-			bm.setBookmark(b.getAddress(), "Analysis", "65816",
-				"not disassembled: speculative operand reference with no M/X/E decode context");
+			// and the disassembly errors that code left behind
+			if (!clear.isEmpty()) {
+				Address end = clear.getMaxAddress();
+				try {
+					end = end.addNoWrap(4);
+				}
+				catch (Exception e) {
+					// keep the last address
+				}
+				bm.removeBookmarks(new AddressSet(clear.getMinAddress(), end), BookmarkType.ERROR,
+					monitor);
+			}
+			if (b != null) {
+				bm.removeBookmark(b);
+			}
+			bm.setBookmark(start, BookmarkType.ANALYSIS, "65816",
+				"not disassembled: code at a data pointer with no M/X/E decode context");
 		}
 		return true;
 	}
