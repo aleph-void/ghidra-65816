@@ -16,6 +16,13 @@ SINC = (LANGUAGES / "658xx.sinc").read_text(encoding="utf-8")
 MEMACCESS = (LANGUAGES / "658xx_memaccess.sinc").read_text(encoding="utf-8")
 
 
+def macro_body(name: str) -> str:
+    """Return the body of a SLEIGH macro defined in 658xx.sinc."""
+    start = SINC.index(f"macro {name}(")
+    brace = SINC.index("{", start)
+    return SINC[brace + 1:SINC.index("\n}", brace)]
+
+
 def instruction_blocks(mnemonic: str) -> list[tuple[str, str]]:
     """Return (constructor header, semantic body) pairs for an instruction."""
     starts = list(re.finditer(rf"(?m)^:{re.escape(mnemonic)}\b", SINC))
@@ -162,6 +169,12 @@ class InstructionSemanticRegressionTests(unittest.TestCase):
                     body for header, body in instruction_blocks(mnemonic)
                     if "ctx_EF=0" in header
                 ]
+                # PLP has one native constructor per decode-context source (PHP, PEA,
+                # unknown); all share the plp_native() macro.
+                if mnemonic == "PLP":
+                    self.assertEqual(len(blocks), 3)
+                    self.assertTrue(all("plp_native();" in b for b in blocks))
+                    blocks = [macro_body("plp_native")]
                 self.assertEqual(len(blocks), 1)
                 self.assertIn("pull_status_native(status);", blocks[0])
                 self.assertNotIn("pull_status_emulation();", blocks[0])
@@ -180,6 +193,8 @@ class InstructionSemanticRegressionTests(unittest.TestCase):
                     body for header, body in instruction_blocks(mnemonic)
                     if "ctx_EF=0" in header
                 ]
+                if mnemonic == "PLP":
+                    native_bodies = [macro_body("plp_native")]
                 self.assertEqual(len(native_bodies), 1)
                 body = native_bodies[0]
                 self.assertIn("pull_status_native(status);", body)
@@ -198,7 +213,7 @@ class InstructionSemanticRegressionTests(unittest.TestCase):
                     self.assertEqual(len(bodies), 1)
                     body = bodies[0]
                     status_push = (
-                        "push_status_native();"
+                        "push_status_native(ctx_MF, ctx_XF);"
                         if mode == "native"
                         else "push_status_emulation(1:1);"
                     )
@@ -268,32 +283,38 @@ class InstructionSemanticRegressionTests(unittest.TestCase):
 
     def test_native_xce_preserves_width_context_and_index_high_bytes(self) -> None:
         blocks = instruction_blocks("XCE")
-        native = [ (header, body) for header, body in blocks if "ctx_EF=0" in header ]
-        self.assertEqual(len(native), 1)
-        header, body = native[0]
+        native = [(header, body) for header, body in blocks if "is ctx_EF=0" in header]
+        # After SEC the carry is known: XCE enters emulation mode with M=X=1. Otherwise the
+        # native-mode decode context is kept.
+        self.assertEqual(len(native), 2)
+        after_sec = [header for header, _ in native if "ctx_carry=2" in header]
+        self.assertEqual(len(after_sec), 1)
+        for action in ("ctx_EF=1", "ctx_MF=1", "ctx_XF=1"):
+            self.assertIn(action, after_sec[0])
+        self.assertTrue(all("xce_from_native();" in body for _, body in native))
 
-        self.assertIn("ctx_MF=ctx_MF | CF", header)
-        self.assertIn("ctx_XF=ctx_XF | CF", header)
-
+        body = macro_body("xce_from_native")
         native_to_native = body.split("\n    <to_native>", 1)[1].split("\n    <end>", 1)[0]
         self.assertNotRegex(native_to_native, r"\bXHigh\s*=\s*0")
         self.assertNotRegex(native_to_native, r"\bYHigh\s*=\s*0")
 
     def test_xce_applies_register_cleanup_only_on_mode_transitions(self) -> None:
         blocks = instruction_blocks("XCE")
-        native = [body for header, body in blocks if "ctx_EF=0" in header]
-        emulation = [body for header, body in blocks if "ctx_EF=1" in header]
-        self.assertEqual(len(native), 1)
-        self.assertEqual(len(emulation), 1)
+        native = [body for header, body in blocks if "is ctx_EF=0" in header]
+        emulation = [body for header, body in blocks if "is ctx_EF=1" in header]
+        self.assertEqual(len(native), 2)
+        self.assertEqual(len(emulation), 2)
+        self.assertTrue(all("xce_from_native();" in b for b in native))
+        self.assertTrue(all("xce_from_emulation();" in b for b in emulation))
 
-        native_body = native[0]
+        native_body = macro_body("xce_from_native")
         to_emulation = native_body.split("\n#    <to_emulation>", 1)[1].split("\n    <to_native>", 1)[0]
         self.assertIn("XHigh = 0;", to_emulation)
         self.assertIn("YHigh = 0;", to_emulation)
         self.assertIn("SPHigh = 1;", to_emulation)
         self.assertIn("CF = 0;", native_body)
 
-        emulation_body = emulation[0]
+        emulation_body = macro_body("xce_from_emulation")
         to_native = emulation_body.split("\n    <to_native>", 1)[1].split("\n    <end>", 1)[0]
         self.assertIn("XHigh = 0;", to_native)
         self.assertIn("YHigh = 0;", to_native)
