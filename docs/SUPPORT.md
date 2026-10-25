@@ -20,6 +20,9 @@ The processor module models the WDC W65C816S (65816) CPU in Ghidra. It is a **st
 ## Explicitly not supported yet
 
 - **65802:** not supported until a separate compatibility matrix and variant-specific regression tests exist. Do not label it supported just because it shares instructions with the 65816.
+  *(Ghidra-Rare fork: supported as `65802:LE:16:default`; the 16-bit address bus is modelled and
+  `test/emu65802` holds variant-specific cases that fail on the 65816 language. See
+  GHIDRA-RARE.md.)*
 - **Cycle-exact timing or bus emulation:** the Ghidra P-code semantics are instruction-level and do not promise cycle accuracy or full bus-cycle fidelity.
 - **Automatic certainty for unknown runtime state:** stack contents, unknown Carry values at XCE, and conflicting control-flow paths may prevent static MF/XF/EF resolution. The analyzer must not force a decode mode when the evidence is ambiguous.
 

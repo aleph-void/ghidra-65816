@@ -4,7 +4,7 @@
 
 - Repository: https://github.com/kaayzouee/ghidra-65816
 - Commit: `dbe194026a4b810e9224cc9a4092de2798c67866` (2026-10-21, "Merge pull request #15")
-- Ghidra-Rare fork: [aleph-void/ghidra-65816](https://github.com/aleph-void/ghidra-65816/tree/ghidra-rare), branch `ghidra-rare`, commit `77b4520e4cbb6d55c5b5ffba7ddd64ff82ce84b2`
+- Ghidra-Rare fork: [aleph-void/ghidra-65816](https://github.com/aleph-void/ghidra-65816/tree/ghidra-rare), branch `ghidra-rare` (first verified at `77b4520`; the change list below names every later commit)
 - License: MIT (`LICENSE`, copyright 2019 achan1989, 2026 kaayzouee)
 
 ## Original authors
@@ -31,8 +31,8 @@ Commit authors (from `git log`): achan1989 `<achan1989@gmail.com>` (74 commits),
 
 ## What Ghidra-Rare changed
 
-Each change is a commit on branch `ghidra-rare` of a fork of kaayzouee/ghidra-65816; the module
-here is a copy of that branch's processor files.
+Each change is a commit on branch `ghidra-rare` of the fork of kaayzouee/ghidra-65816
+(Ghidra-Rare includes the fork as a submodule).
 
 1. **cspec** (`2d2f11f`): Ghidra 12 refused to load `65816.cspec` (`unexpected attribute
    "type"`), so the language could not be used at all. New `__near` (JSR/RTS, default) and
@@ -63,8 +63,36 @@ here is a copy of that branch's processor files.
    header, ROM, mirrors, WRAM and I/O mapping, and the vectors as entry points with the right
    decode context.
 
-Ghidra-Rare-only files (not in the fork): `build.gradle`, `extension.properties`, `README.md`,
-`CREDITS.md`, `test/`.
+Test inputs added in the limitations pass are all generated or hand-written: `test/issues`,
+`test/vectors`, `test/emu65802` (ca65 sources), `test/loader/make_roms.py` (synthetic ExHiROM,
+HiROM+SRAM, SA-1 and SuperFX images; no commercial data).
+
+Limitations pass (upstream's known limitations and issues, and Ghidra-Rare's own known gaps):
+
+8. **build.gradle** (`ebac66d`): the Ghidra-Rare commit had replaced upstream's JUnit test build;
+   restored, with the extension build options kept.
+9. **Immediates are constants** (`e541cb9`, achan1989#10, #8): no references to the instruction
+   bytes; the decompiler sees the values.
+10. **Vector entry points for non-SNES images** (`3f47506`): the "65816 Vector Entry Points"
+    analyzer; the vector logic is shared with the loader.
+11. **65802 variant** (`f7c2db8`): `65802:LE:16:default`, 16-bit address bus.
+12. **Upstream-issue regression test** (`387a4ee`): the byte sequences of achan1989 #1-#4, #8, #10,
+    #12.
+13. **WAI/STP as flow** (`7b340b7`): no pcodeops, so the emulator runs them.
+14. **XCE after REP/SEP #$01** (`06e14ec`).
+15. **Callee width changes** (`5df176a`, refined in `1bd1a90`): the "65816 Callee Width Changes"
+    analyzer.
+16. **Loader boards** (`8f25e95`): ExHiROM, SA-1, SuperFX, cartridge RAM.
+17. **Far functions and context-less code** (`fa632d3`, `e737bbd`): RTL functions get `__far`;
+    code Ghidra found at speculative pointers without a decode context is removed again.
+18. **DBR tracking** (`7c1fe24`): the "65816 DBR Propagation" analyzer, RESET's DBR=0, and the
+    trace-based DBR check in the real-ROM test.
+19. **PEA+PLP keeps an earlier PHP's widths** (`1bd1a90`).
+20. **Native RTI test** (`fc1f918`, kaayzouee#9).
+21. **README / SUPPORT.md**: stale claims and each limitation's outcome.
+
+The Ghidra-Rare additions (`GHIDRA-RARE.md`, `CREDITS.md`, `test/`, `extension.properties`, the
+release workflow) are in the fork too (`3f79a62`, `3df02ec`).
 
 ## Test inputs and tools (not redistributed)
 
