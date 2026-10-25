@@ -12,7 +12,8 @@
 #              program bank.
 # UNSUPPORTED: when pulling the context flags MF and XF from the stack Ghidra does not
 #              automatically set the correct processor mode (context variables).
-# UNSUPPORTED: automatic entry point symbols.
+# Automatic entry points: the vectors are made entry points by the SNES ROM loader and the
+# "65816 Vector Entry Points" analyzer (src/main/java), not by this specification.
 
 
 define endian=little;

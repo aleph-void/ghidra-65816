@@ -12,7 +12,9 @@
     `entry="true" type="code_ptr"`, but that doesn't work properly. Because the PC is three bytes
     Ghidra expects these vectors to be three bytes, but they are actually only two bytes in ROM
     (the 65816 always assumes that the highest byte is zero).
-    You must add the entry points manually, or rely on a loader or scripts to set them up. -->
+    The module's Java code does it instead: the SNES ROM loader and, for other images, the
+    "65816 Vector Entry Points" analyzer make the vector targets entry points with the right
+    M/X/E decode context. -->
     <symbol name="VEC_IRQ_EMULATION" address="FFFE"/>
     <symbol name="VEC_RESET_EMULATION" address="FFFC"/>
     <symbol name="VEC_NMI_EMULATION" address="FFFA"/>

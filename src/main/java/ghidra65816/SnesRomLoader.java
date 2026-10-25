@@ -2,7 +2,6 @@
 package ghidra65816;
 
 import java.io.IOException;
-import java.math.BigInteger;
 import java.util.*;
 
 import ghidra.app.util.MemoryBlockUtils;
@@ -11,14 +10,10 @@ import ghidra.app.util.opinion.*;
 import ghidra.program.database.mem.FileBytes;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.address.AddressSpace;
-import ghidra.program.model.data.WordDataType;
 import ghidra.program.model.lang.*;
 import ghidra.program.model.listing.Program;
 import ghidra.program.model.mem.Memory;
 import ghidra.program.model.mem.MemoryBlock;
-import ghidra.program.model.symbol.SourceType;
-import ghidra.program.model.symbol.SymbolTable;
-import ghidra.program.model.util.CodeUnitInsertionException;
 import ghidra.util.exception.CancelledException;
 
 /**
@@ -180,47 +175,8 @@ public class SnesRomLoader extends AbstractProgramWrapperLoader {
 		}
 	}
 
-	private static final Object[][] VECTORS = {
-		// address, name, emulation mode
-		{ 0xffe4, "COP_NATIVE", false }, { 0xffe6, "BRK_NATIVE", false },
-		{ 0xffe8, "ABORT_NATIVE", false }, { 0xffea, "NMI_NATIVE", false },
-		{ 0xffee, "IRQ_NATIVE", false }, { 0xfff4, "COP_EMULATION", true },
-		{ 0xfff8, "ABORT_EMULATION", true }, { 0xfffa, "NMI_EMULATION", true },
-		{ 0xfffc, "RESET", true }, { 0xfffe, "IRQBRK_EMULATION", true } };
-
 	private void setUpVectors(Program program, AddressSpace bus) throws Exception {
-		Memory mem = program.getMemory();
-		SymbolTable st = program.getSymbolTable();
-		Language lang = program.getLanguage();
-		Register ctx = lang.getContextBaseRegister();
-		Register mf = lang.getRegister("ctx_MF");
-		Register xf = lang.getRegister("ctx_XF");
-		Register ef = lang.getRegister("ctx_EF");
-		for (Object[] v : VECTORS) {
-			Address va = bus.getAddress((Integer) v[0]);
-			if (!mem.contains(va, va.add(1))) {
-				continue;
-			}
-			try {
-				program.getListing().createData(va, WordDataType.dataType);
-			}
-			catch (CodeUnitInsertionException e) {
-				// already defined
-			}
-			st.createLabel(va, "VEC_" + v[1], SourceType.IMPORTED);
-			int target = (mem.getByte(va) & 0xff) | (mem.getByte(va.add(1)) & 0xff) << 8;
-			Address t = bus.getAddress(target);
-			MemoryBlock tb = mem.getBlock(t);
-			if (target < 0x8000 || tb == null || !tb.isInitialized() && !tb.isMapped()) {
-				continue;
-			}
-			st.createLabel(t, (String) v[1], SourceType.IMPORTED);
-			st.addExternalEntryPoint(t);
-			RegisterValue rv = new RegisterValue(ctx);
-			rv = rv.assign(mf, BigInteger.ONE);
-			rv = rv.assign(xf, BigInteger.ONE);
-			rv = rv.assign(ef, (Boolean) v[2] ? BigInteger.ONE : BigInteger.ZERO);
-			program.getProgramContext().setRegisterValue(t, t, rv);
-		}
+		// SNES vectors point into ROM ($8000-$FFFF of bank 0)
+		VectorEntryPoints.apply(program, 0x8000);
 	}
 }
