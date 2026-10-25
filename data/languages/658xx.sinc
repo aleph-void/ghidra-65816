@@ -1315,10 +1315,11 @@ macro plp_native() {
     <skip_shrink>
 }
 
+# PEA just before: PLP pulls the PEA's low byte, so a status saved by an earlier PHP is still on
+# the stack below it and its saved widths stay valid for the PLP that pulls it.
 :PLP    is (ctx_EF=0 & ctx_peaOK=1 & ctx_peaM & ctx_peaX & op=0x28)
     [ ctx_MF=ctx_peaM; globalset(inst_next, ctx_MF);
-      ctx_XF=ctx_peaX; globalset(inst_next, ctx_XF);
-      ctx_svOK=0; globalset(inst_next, ctx_svOK); ]
+      ctx_XF=ctx_peaX; globalset(inst_next, ctx_XF); ]
 {
     plp_native();
 }

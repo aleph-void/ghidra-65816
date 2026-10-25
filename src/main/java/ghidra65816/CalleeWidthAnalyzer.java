@@ -22,8 +22,9 @@ import ghidra.util.task.TaskMonitor;
  * <p>
  * For each function whose every RTS/RTL has the same M (or X) width, different from the width at
  * its entry (so the callee sets it on every path, rather than passing the caller's through), the
- * code after each call to it is cleared and disassembled again with that width. Functions that
- * restore the caller's widths (PHP ... PLP) return their entry widths and are left alone.
+ * code after each call to it is cleared and disassembled again with that width. Functions with a
+ * PLP are left alone: they usually restore the caller's widths (PHP ... PLP), and the static
+ * tracking of pulled widths is one level deep.
  */
 public class CalleeWidthAnalyzer extends AbstractAnalyzer {
 
@@ -54,6 +55,9 @@ public class CalleeWidthAnalyzer extends AbstractAnalyzer {
 		BigInteger exit = null;
 		for (Instruction ins : listing.getInstructions(f.getBody(), true)) {
 			String mn = ins.getMnemonicString();
+			if (mn.equals("PLP")) {
+				return -1; // pulled widths are tracked one level only: do not trust the exit
+			}
 			if (!mn.equals("RTS") && !mn.equals("RTL")) {
 				continue;
 			}

@@ -33,7 +33,8 @@ G = {}
 for line in open(a.lst):
     p = line.rstrip("\n").split(" ", 5)
     if len(p) == 6:
-        G[int(p[0], 16)] = (int(p[1]), int(p[2]), int(p[3]), p[4], p[5])
+        ctx = [int(v) if v != "null" else -1 for v in p[1:4]]   # null: no decode context
+        G[int(p[0], 16)] = (ctx[0], ctx[1], ctx[2], p[4], p[5])
 
 with tempfile.TemporaryDirectory() as td:
     lf = os.path.join(td, "l.txt")
