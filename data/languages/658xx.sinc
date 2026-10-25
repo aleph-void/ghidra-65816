@@ -2017,7 +2017,7 @@ define pcodeop wai;
     wai();
 }
 
-:WDM    is op=0x42; unused8  {}
+:WDM $unused8    is op=0x42; unused8  {}
 
 :XBA    is op=0xeb
 {
