@@ -1,4 +1,5 @@
-; Regression program for the upstream issues (achan1989/ghidra-65816 #1-#4, #8, #10, #12):
+; Regression program for the upstream issues (achan1989/ghidra-65816 #1-#4, #8, #10, #12)
+; and for width changes made by a callee (set8):
 ; each byte sequence from an issue report, reached from the reset entry point the way a program
 ; would set its widths. Each "expect:" comment gives the Ghidra listing text the instruction must
 ; have; test/issues-test.sh also checks that no immediate operand makes a memory reference
@@ -41,7 +42,28 @@ skip2:
         bit #$4000              ; expect: BIT #$0x4000
         ; #12: a9 78 22 40 with M=0 is LDA #$2278; RTI (not LDA #$78; JSL)
         lda #$2278              ; expect: LDA #$0x2278
+        ; A callee's REP/SEP reaches the caller: set8 returns with M=X=1
+        jsr set8                ; expect: JSR !$0x00????
+        .a8
+        .i8
+        lda #$21                ; expect: LDA #$0x21
+        ldx #$22                ; expect: LDX #$0x22
+        jsr keep                ; expect: JSR !$0x00????
+        lda #$23                ; expect: LDA #$0x23
         rti                     ; expect: RTI
+
+set8:   sep #$30                ; expect: SEP #$0x30
+        rts                     ; expect: RTS
+; keep restores its caller's widths: the caller's context must not change after it
+keep:   php                     ; expect: PHP
+        rep #$30                ; expect: REP #$0x30
+        .a16
+        .i16
+        lda #$2424              ; expect: LDA #$0x2424
+        plp                     ; expect: PLP
+        rts                     ; expect: RTS
+        .a16
+        .i16
 
 ; Decompiled by the test: the constants must appear as values ($1234 + $0101 = $1335 is stored).
 sub:    .a8

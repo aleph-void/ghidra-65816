@@ -1,4 +1,6 @@
-al 008032 .sub
+al 008041 .keep
+al 00803E .set8
+al 008049 .sub
 al 00801A .skip2
 al 008014 .skip
 al 008000 .reset
