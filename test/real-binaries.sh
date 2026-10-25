@@ -16,7 +16,7 @@ for rom in "$SAMPLES"/roms/*.sfc; do
 	if command -v mame >/dev/null; then
 		cat > "$WORK/$name.lua" <<LUA
 local d = manager.machine.debugger
-d:command("trace $WORK/$name.trace,:maincpu,noloop")
+d:command("trace $WORK/$name.trace,:maincpu,noloop,{tracelog \\"DB=%02X D=%04X \\",db,d}")
 d:command("go")
 LUA
 		timeout 600 mame snes -rompath "$WORK/mame-roms" -cart "$rom" -debug -debugger none \
@@ -28,6 +28,6 @@ LUA
 		fi
 	fi
 	echo "== $name: $(sed -n 2p "$WORK/$name.summary")"
-	python3 "$HERE/real_compare.py" "$WORK/$name.lst" "$DIS" "${targs[@]}" --label "$name"
+	python3 "$HERE/real_compare.py" "$WORK/$name.lst" "$DIS" "${targs[@]}" --refs "$WORK/$name.refs" --label "$name"
 	rm -f "$WORK/$name.lua"
 done

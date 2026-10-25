@@ -24,7 +24,8 @@ import ghidra.util.exception.InvalidInputException;
  * The 65816 reset and interrupt vectors ($00FFE4-$00FFFF, 16-bit pointers into bank 0) as entry
  * points. Each target gets the decode context the CPU has there: emulation mode (E=1, M=X=1) for
  * the emulation vectors including RESET, native mode with 8-bit M and X for the native vectors
- * (the real widths there are those of the interrupted code). Used by the SNES ROM loader and,
+ * (the real widths there are those of the interrupted code); RESET also gets the reset state's
+ * DBR=0 and DP=0. Used by the SNES ROM loader and,
  * for other images, by {@link VectorEntryPointAnalyzer}.
  */
 public final class VectorEntryPoints {
@@ -92,6 +93,18 @@ public final class VectorEntryPoints {
 			}
 			catch (ghidra.program.model.listing.ContextChangeException e) {
 				// already disassembled there: keep the existing context
+			}
+			if (v[1].equals("RESET")) {
+				// the reset state: data bank and direct page 0
+				var pc = program.getProgramContext();
+				for (String r : new String[] { "DBR" }) {
+					try {
+						pc.setValue(lang.getRegister(r), t, t, BigInteger.ZERO);
+					}
+					catch (ghidra.program.model.listing.ContextChangeException e) {
+						// keep what is there
+					}
+				}
 			}
 			out.add(new Target(t, (String) v[1], rv));
 		}

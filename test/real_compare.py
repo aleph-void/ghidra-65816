@@ -23,6 +23,8 @@ ap = argparse.ArgumentParser()
 ap.add_argument("lst")
 ap.add_argument("dis")
 ap.add_argument("--trace")
+ap.add_argument("--refs", help="<name>.refs from G65816RealCheck: data references to check "
+                "against the DB/D values in the trace")
 ap.add_argument("--label", default="")
 ap.add_argument("--show", type=int, default=3)
 a = ap.parse_args()
@@ -61,12 +63,17 @@ for op, v in sorted(diff.items(), key=lambda kv: -len(kv[1])):
     for addr, b, t, mt in v[: a.show]:
         print(f"      {addr:06x} {b} ghidra={t!r} mame={mt!r}")
 
+REGS = {}
 if a.trace:
     T = {}
     for line in open(a.trace, errors="replace"):
-        m = re.match(r"([0-9A-F]{2}):([0-9A-F]{4}): (.*)$", line.strip())
+        m = re.match(r"(?:DB=([0-9A-F]{2}) D=([0-9A-F]{4}) )?([0-9A-F]{2}):([0-9A-F]{4}): (.*)$",
+                     line.strip())
         if m:
-            T[int(m.group(1), 16) << 16 | int(m.group(2), 16)] = m.group(3)
+            pc = int(m.group(3), 16) << 16 | int(m.group(4), 16)
+            T[pc] = m.group(5)
+            if m.group(1):
+                REGS.setdefault(pc, set()).add((int(m.group(1), 16), int(m.group(2), 16)))
     starts = sorted(G)
     import bisect
     same = 0
@@ -98,3 +105,38 @@ if a.trace:
         for pc, mt, g in ex[k][: a.show]:
             print(f"      {pc:06x} mame={mt!r} ghidra={g[4] if g else None!r}"
                   + (f" (M{g[0]} X{g[1]} E{g[2]})" if g else ""))
+
+if a.trace and a.refs and REGS:
+    # Each data reference of an absolute (DBR:abs) or direct-page (DP+dp) operand assumes a DBR
+    # or DP value; it must be one the CPU had at that instruction in the trace.
+    ok = bad = untraced = 0
+    bad_ex = []
+    for line in open(a.refs):
+        pc, to = (int(v, 16) for v in line.split())
+        if pc not in G:
+            continue
+        t = G[pc][4]
+        mm = re.match(r"\S+ ([!<])\$0x([0-9a-f]+)$", t)   # unindexed abs / dp only
+        if not mm or t.startswith(("J", "PE")):
+            continue
+        if pc not in REGS:
+            untraced += 1
+            continue
+        v = int(mm.group(2), 16)
+        if mm.group(1) == "!" and to & 0xffff not in (v, (v + 1) & 0xffff):
+            continue                       # another reference of the instruction (e.g. stack)
+        if mm.group(1) == "<" and to >> 16:
+            continue
+        if mm.group(1) == "!":
+            good = any(to in (db << 16 | v, db << 16 | (v + 1) & 0xffff) for db, d in REGS[pc])
+        else:
+            good = any(to in ((d + v) & 0xffff, (d + v + 1) & 0xffff) for db, d in REGS[pc])
+        if good:
+            ok += 1
+        else:
+            bad += 1
+            bad_ex.append(f"      {pc:06x} {t} -> {to:06x}; traced DB/D {sorted(REGS[pc])[:3]}")
+    print(f"{a.label} bank refs: {ok + bad} executed abs/dp references checked, {ok} use a DBR/DP "
+          f"the CPU had there, {bad} do not ({untraced} not executed)")
+    for e in bad_ex[: a.show]:
+        print(e)

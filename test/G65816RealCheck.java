@@ -1,5 +1,5 @@
 // Post-analysis check of an imported 65816 program (real-binary test).
-// Writes <out>.summary (counts) and <out>.lst (one line per instruction:
+// Writes <out>.summary (counts), <out>.refs (data references) and <out>.lst (one line per instruction:
 // "<addr-hex6> <M> <X> <E> <bytes-hex> <text>"), and decompiles every function.
 // Script args: <out-prefix> [decompile-timeout-seconds]
 //@category Testing
@@ -24,6 +24,7 @@ public class G65816RealCheck extends GhidraScript {
 				ef = lang.getRegister("ctx_EF");
 
 		PrintStream lst = new PrintStream(prefix + ".lst");
+		PrintStream refs = new PrintStream(prefix + ".refs"); // pc and target of data references
 		int ninsn = 0;
 		for (Instruction ins : currentProgram.getListing().getInstructions(true)) {
 			StringBuilder hex = new StringBuilder();
@@ -32,9 +33,16 @@ public class G65816RealCheck extends GhidraScript {
 			}
 			lst.printf("%06x %s %s %s %s %s%n", ins.getAddress().getOffset(),
 				ins.getValue(mf, false), ins.getValue(xf, false), ins.getValue(ef, false), hex, ins);
+			for (ghidra.program.model.symbol.Reference r : ins.getReferencesFrom()) {
+				if (r.getToAddress().isMemoryAddress() && !r.getReferenceType().isFlow()) {
+					refs.printf("%06x %06x%n", ins.getAddress().getOffset(),
+						r.getToAddress().getOffset());
+				}
+			}
 			ninsn++;
 		}
 		lst.close();
+		refs.close();
 
 		var bm = currentProgram.getBookmarkManager();
 		int bad = 0, errors = 0;
